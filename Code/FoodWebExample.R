@@ -1,5 +1,3 @@
-rm(list=ls())
-
 ## First, source the standard food web functions file, or paste it all into R
 source("standard.food.web.functions.r")
 

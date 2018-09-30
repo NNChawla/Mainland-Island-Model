@@ -1,16 +1,21 @@
 library(deSolve)
 library(lattice)
+library(tidyverse)
 
+## make some random, cascade, and niche food webs
+S = 40     ## set species richness
+C = 0.2   ## set connectance
+N = 1     ## set the number of replicate webs to make
+L = S^2*C  ## calculate number of links from S and C
 
-  ## make some random, cascade, and niche food webs
-  S = 40     ## set species richness
-  C = 0.2   ## set connectance
-  N = 1     ## set the number of replicate webs to make
-  L = S^2*C  ## calculate number of links from S and C
-  
-  
+communities <- rep(list(vector("list", S)), S)
+meanStabilities <- rep(list(vector("list", S)), S)
+stdDevs <- rep(list(vector("list", S)), S)
+
+for(rowN in seq(1, 40)) {
+  for(colN in seq(1, 40)) {
+
   xxx <- Cascade.model(S, L, N)
-  
   
   # par(mfrow = c(1,2))
   # Plot.matrix(xxx)
@@ -38,10 +43,6 @@ library(lattice)
     as.data.frame(lsoda(init.x, t.out, model, parms = parms))
   }
   
-  
-  
-  
-  
   # Integration window
   time <- list(start = 0, end = 100, steps = 100)
   # dummy variable for lvm() function defined above
@@ -49,16 +50,21 @@ library(lattice)
   
   
   out <- n.integrate(time, init.x, model = mougi_model)
+  communities[[rowN]][[colN]] <- out
+  
+  # plot(out[,1], out[,2], type='l', ylim = c(0, max(out[,2:ncol(out)])), lwd = 2)
+  # for (i in 3:ncol(out)){
+  #  points(out[,1], out[,i], type='l', col = i-1, lwd = 2 )
+  # }
+  # 
   
   
-  plot(out[,1], out[,2], type='l', ylim = c(0, max(out[,2:ncol(out)])), lwd = 2)
-  for (i in 3:ncol(out)){
-    points(out[,1], out[,i], type='l', col = i-1, lwd = 2)
+  meanStabilities[[rowN]][[colN]] <- mean(out[nrow(out),2:n] > 10^-5)
+  stdDevs[[rowN]][[colN]] <- sd(out[nrow(out),2:n] > 10^-5)
+  
   }
+}
 
-  
-  
-  sum(out[nrow(out),2:n] > 10^-5) / n
-  
+ggplot(data = )
   
   
