@@ -2,69 +2,92 @@ library(deSolve)
 library(lattice)
 library(tidyverse)
 
-## make some random, cascade, and niche food webs
-S = 40     ## set species richness
-C = 0.2   ## set connectance
-N = 1     ## set the number of replicate webs to make
-L = S^2*C  ## calculate number of links from S and C
+CvNs <- function(S, C, step) {
 
-communities <- rep(list(vector("list", S)), S)
-meanStabilities <- rep(list(vector("list", S)), S)
-stdDevs <- rep(list(vector("list", S)), S)
+  ## make some random, cascade, and niche food webs
+  ## S is species richness
+  ## C is connectance
+  N <- 1     ## set the number of replicate webs to make
+  matrixSize <- round(C/step)
+  
+  communities <- rep(list(vector("list", matrixSize)), matrixSize)
+  meanStabilities <- rep(list(vector("list", matrixSize)), matrixSize)
+  stdDevs <- rep(list(vector("list", matrixSize)), matrixSize)
+  
+  C_step <- 0
+  S_step <- 0
+  
+  for(rowC in seq(1, matrixSize)) {
+    #print(rowC)
+    
+    for(colN in seq(1, matrixSize)) {
+      #print(colN)
+      if(S_step==0) {
+        communities[[rowC]][[colN]] <- 0
+        meanStabilities[[rowC]][[colN]] <- 0
+        stdDevs[[rowC]][[colN]] <- 0
+        S_step <- S_step + step * S
+        next
+      }
+      
+      L <- S_step^2*C_step  ## calculate number of links from S and C
+      
+      if (((S_step^2 - S_step)/2 - L) < 0) {
+        print(c(rowC, colN, S_step, L))
+        S_step <- S_step + step * S
+        next
+      }
+      xxx <- Cascade.model(S_step, L, N)
+      
+      # Number of Species
+      n <- S_step
+      r <- runif(n, -1,1)
+      s <- runif(n, 1,1)
+      g <- runif(n)
+      # a <- matrix(runif(n*n, 0, 0.1),nrow=n)
+      a <- xxx * matrix(runif(n*n, 0,1),nrow=n)
+      diag(a) <- rep(0,n)
+      
+      # init.x <- rep(1, n)
+      init.x <- runif(n)
+      
+      mougi_model <- function(t,x,parms){
+        dx <- x * (r - s*x + g * (a %*% x) - (t(a) %*% x))
+        list(dx)
+      }
+      
+      n.integrate <- function(time=time, init.x= init.x, model=model){
+        t.out <- seq(time$start,time$end,length=time$steps)
+        as.data.frame(lsoda(init.x, t.out, model, parms = parms))
+      }
+      
+      # Integration window
+      time <- list(start = 0, end = 100, steps = 100)
+      # dummy variable for lvm() function defined above
+      parms <- c(0) ### dummy variable (can have any numerical value)
+      
+      
+      out <- n.integrate(time, init.x, model = mougi_model)
+      communities[[rowC]][[colN]] <- out
+      meanStabilities[[rowC]][[colN]] <- mean(out[nrow(out),2:n] > 10^-5)
+      stdDevs[[rowC]][[colN]] <- sd(out[nrow(out),2:n] > 10^-5)
+      
+      S_step <- S_step + step * S
+    }
+    
+    S_step <- 0
+    C_step <- C_step + step
+    
+  }
 
-for(rowN in seq(1, 40)) {
-  for(colN in seq(1, 40)) {
+matricies <- list("communities" = communities, "mean" = meanStabilities, "stDev" = stdDevs)
+return(matricies)
 
-  xxx <- Cascade.model(S, L, N)
-  
-  # par(mfrow = c(1,2))
-  # Plot.matrix(xxx)
-  # box()
-  
-  # Number of Species
-  n <- S
-  r <- runif(n, -1,1)
-  s <- runif(n, 1,1)
-  g <- runif(n)
-  # a <- matrix(runif(n*n, 0, 0.1),nrow=n)
-  a <- xxx * matrix(runif(n*n, 0,1),nrow=n)
-  diag(a) <- rep(0,n)
-  
-  # init.x <- rep(1, n)
-  init.x <- runif(n)
-  
-  mougi_model <- function(t,x,parms){
-    dx <- x * (r - s*x + g * (a %*% x) - (t(a) %*% x))
-    list(dx)
-  }
-  
-  n.integrate <- function(time=time, init.x= init.x, model=model){
-    t.out <- seq(time$start,time$end,length=time$steps)
-    as.data.frame(lsoda(init.x, t.out, model, parms = parms))
-  }
-  
-  # Integration window
-  time <- list(start = 0, end = 100, steps = 100)
-  # dummy variable for lvm() function defined above
-  parms <- c(0) ### dummy variable (can have any numerical value)
-  
-  
-  out <- n.integrate(time, init.x, model = mougi_model)
-  communities[[rowN]][[colN]] <- out
-  
-  # plot(out[,1], out[,2], type='l', ylim = c(0, max(out[,2:ncol(out)])), lwd = 2)
-  # for (i in 3:ncol(out)){
-  #  points(out[,1], out[,i], type='l', col = i-1, lwd = 2 )
-  # }
-  # 
-  
-  
-  meanStabilities[[rowN]][[colN]] <- mean(out[nrow(out),2:n] > 10^-5)
-  stdDevs[[rowN]][[colN]] <- sd(out[nrow(out),2:n] > 10^-5)
-  
-  }
 }
 
-ggplot(data = )
+plotCommunity <- function(targetMatrix, row_num, col_num) {
   
+  ggplot(data <- melt(targetMatrix[[row_num]][[col_num]], id.vars = "time")) +
+    geom_point(mapping = aes(x = time, y = value, color = variable))
   
+}
