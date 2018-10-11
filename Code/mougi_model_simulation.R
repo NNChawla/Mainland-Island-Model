@@ -3,10 +3,10 @@ library(lattice)
 
 
   ## make some random, cascade, and niche food webs
-  S = 40     ## set species richness
-  C = 0.2   ## set connectance
+  S = 18     ## set species richness
+  C = 0.4   ## set connectance
   N = 1     ## set the number of replicate webs to make
-  L = S^2*C  ## calculate number of links from S and C
+  L = round(S^2*C)  ## calculate number of links from S and C
   
   
   xxx <- Cascade.model(S, L, N)
