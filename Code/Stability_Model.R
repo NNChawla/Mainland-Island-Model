@@ -9,34 +9,32 @@ CvNs <- function(S, C, step) {
   ## C is connectance
   N <- 1     ## set the number of replicate webs to make
   matrixSize <- round(C/step)
+  replicates <- 10
   
-  communities <- rep(list(vector("list", matrixSize)), matrixSize)
+  communities <- rep(list(list(vector("list", matrixSize)), matrixSize), replicates)
   meanStabilities <- rep(list(vector("list", matrixSize)), matrixSize)
   stdDevs <- rep(list(vector("list", matrixSize)), matrixSize)
   
-  C_step <- 0
-  S_step <- 0
+  C_step <- step
+  S_step <- S*step
   
-  for(rowC in seq(1, matrixSize)) {
-    #print(rowC)
+  for(rowC in 1:matrixSize) {
+    #print(matrixSize)
     
-    for(colN in seq(1, matrixSize)) {
+    for(colN in 1:matrixSize) {
       #print(colN)
-      if(S_step==0) {
-        communities[[rowC]][[colN]] <- 0
-        meanStabilities[[rowC]][[colN]] <- 0
-        stdDevs[[rowC]][[colN]] <- 0
-        S_step <- S_step + step * S
-        next
-      }
       
       L <- S_step^2*C_step  ## calculate number of links from S and C
       
+      # skipping community generation because formula is less than 0 which throws error
       if (((S_step^2 - S_step)/2 - L) < 0) {
-        print(c(rowC, colN, S_step, L))
+        print(c(S_step, C_step, "error"))
         S_step <- S_step + step * S
         next
       }
+      
+      #generating model based on parameters
+      print(c(S_step, C_step))
       xxx <- Cascade.model(S_step, L, N)
       
       # Number of Species
@@ -75,7 +73,7 @@ CvNs <- function(S, C, step) {
       S_step <- S_step + step * S
     }
     
-    S_step <- 0
+    S_step <- S*step
     C_step <- C_step + step
     
   }
