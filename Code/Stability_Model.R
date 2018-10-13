@@ -79,6 +79,7 @@ CvNs <- function(S, C, step) {
   
   }
   
+  #setting up means and stdDevs
   for(CvN in 1:replicates) {
       
     for(rowC in 1:matrixSize) {
@@ -90,6 +91,13 @@ CvNs <- function(S, C, step) {
         stdDevs[[rowC]][[colN]][[CvN]] <- persistences[[CvN]][[rowC]][[colN]]
         
       }
+    }
+  }
+  
+  for(rowC in 1:matrixSize) {
+    for(colN in 1:matrixSize) {
+      means[[rowC]][[colN]] <- means[[rowC]][[colN]]/10.0
+      stdDevs[[rowC]][[colN]] <- sd(stdDevs[[rowC]][[colN]])
     }
   }
   
