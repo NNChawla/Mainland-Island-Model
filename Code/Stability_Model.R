@@ -102,8 +102,8 @@ CvNs <- function(S, C, step) {
   
   for(rowC in 1:matrixSize) {
     for(colN in 1:matrixSize) {
+      means[[rowC]][[colN]] <- means[[rowC]][[colN]]/replicates
       stdDevs[[rowC]][[colN]] <- sd(stdDevs[[rowC]][[colN]])
-      #print(c(rowC, colN, stdDevs[[rowC]][[colN]]))
     }
   }
   
@@ -112,6 +112,13 @@ CvNs <- function(S, C, step) {
   stdDevs <- as.data.frame(matrix(unlist(stdDevs), nrow=length(unlist(stdDevs[1]))))
   rownames(stdDevs) <- connectanceLabels
   colnames(stdDevs) <- speciesLabels
+  
+  means <- as.data.frame(matrix(unlist(means), nrow=length(unlist(means[1]))))
+  rownames(means) <- connectanceLabels
+  colnames(means) <- speciesLabels[1:length(means)]
+  
+  #removing null columns from sd dataframe
+  stdDevs <- stdDevs[1:length(stdDevs), 1:length(means)]
   
   matricies <- list("communities" = communities, "persistences" = persistences, "mean" = means, "stdDev" = stdDevs)
   return(matricies)
