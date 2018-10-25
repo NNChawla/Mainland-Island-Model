@@ -1,6 +1,7 @@
 library(deSolve)
 library(lattice)
 library(tidyverse)
+library(reshape)
 
 CvNs <- function(S, C, step) {
 
