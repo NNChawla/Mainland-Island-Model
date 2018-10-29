@@ -133,3 +133,23 @@ plotGraph <- function(dataFrame, graphType) {
     geom_tile(mapping = aes(x = X2, y = X1, fill = value)) +
     labs(fill = graphType)
 }
+
+subsetPath <- function(community, numSpecies) {
+  randSpecies <- sample(2:length(community), numSpecies, replace=FALSE)
+  subsetData <- data.frame(matrix(nrow=100, ncol=numSpecies))
+  for(i in 1:numSpecies) {
+    subsetData[i] <- community[[randSpecies[i]]]
+  }
+  return(list(randSpecies, subsetData))
+}
+
+nstarGraph <- function(meanData, Nstar, interval=0.5) {
+  nstarMatrix <- data.frame(matrix(nrow=nrow(meanData), ncol=ncol(meanData)))
+  for(i in 1:ncol(nstarMatrix)){
+    nstarMatrix[i] <- meanData[,i]*as.numeric(colnames(meanData)[i])
+  }
+  #Use indicies to get CVN pairs along matrix and sample them using island assembly
+  indicies <- which(nstarMatrix > Nstar-interval & nstarMatrix < Nstar+interval, arr.ind = TRUE)
+  
+  
+}
