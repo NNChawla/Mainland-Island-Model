@@ -114,6 +114,13 @@ CvNs <- function(S, C, step) {
   #removing null columns (CvN pairs past max L) from sd dataframe
   stdDevs <- stdDevs[1:length(stdDevs), 1:length(means)]
   
+  #remove row a$mean[-c(2), ] where 2 is the row number and a$mean is the dataframe
+  remove <- which(as.numeric(rownames(means)) > (0.5*(1-1/S)))
+  if(length(remove) > 0){
+    means <- means[-c(remove), ]
+    stdDevs <- stdDevs[-c(remove), ]
+  }
+  
   #returning containers
   matricies <- list("communities" = communities, "persistences" = persistences, "mean" = means, "stdDev" = stdDevs)
   return(matricies)
@@ -133,7 +140,7 @@ plotGraph <- function(dataFrame, graphType, xax="Species", yax="Connectance") {
 #returns subset of community integrated through time using original final densities
 subsetPath <- function(community, numSpecies, C) {
   
-  #selecting a subset of species from the ones that survived initial integration
+  #Getting the species that survived Mainland integration
   speciesSurvived <- community[nrow(community),2:length(community)] > 10^-5
   persistingSpecies <- c(1:sum(speciesSurvived == TRUE))
   counter = 1
@@ -143,48 +150,88 @@ subsetPath <- function(community, numSpecies, C) {
       counter <- counter + 1
     }
   }
-  if(numSpecies > length(persistingSpecies))
-    return(print("That many species didn't survive"))
+  nStar <- length(persistingSpecies)
+  if(numSpecies > nStar)
+    return(print("nI is greater than N*"))
   
-  randSpecies <- sample(persistingSpecies, numSpecies, replace=FALSE)
-  speciesIndicies <- c(1:numSpecies+1)
-  speciesIndicies[1] <- "time"
-  for(i in 1:numSpecies) {
-    speciesIndicies[i+1] <- randSpecies[i]-1
-    randSpecies[i] <- community[1, randSpecies[i]]
+  #the returned data set should be all of the integrations throughout time
+  numSteps <- ceiling(nStar/numSpecies)
+  allIslandPersistences <- c()
+  allIslandIndicies <- c()
+  endIslandIndicies <- c()
+  endIslandPersistences <- c()
+  subsets <- list()
+  
+  for(step in 1:numSteps) {
+    
+    if(numSpecies > remainingMainlandSpecies)
+      numSpecies <- remainingMainlandSpecies
+    #selecting random subset of nI species from the persisting species
+    randSpecies <- sample(persistingSpecies, numSpecies, replace=FALSE)
+    persistingSpecies <- setdiff(persistingSpecies, randSpecies)
+    speciesIndicies <- c(1:numSpecies+1)
+    speciesIndicies[1] <- "time"
+    for(i in 1:numSpecies) {
+      speciesIndicies[i+1] <- randSpecies[i]-1
+      randSpecies[i] <- community[1, randSpecies[i]]
+    }
+    
+    allIslandIndicies <- c(allIslandIndicies, speciesIndicies[2:numSpecies+1])
+    preIntegration <- c(endIslandPersistences, randSpecies)
+    
+    #integration function
+    L <- round(numSpecies^2*C)  ## calculate number of links from S and C
+  
+    xxx <- Cascade.model(numSpecies, L, N)
+    
+    n <- numSpecies
+    r <- runif(n, -1,1)
+    s <- runif(n, 1,1)
+    g <- runif(n)
+    a <- xxx * matrix(runif(n*n, 0,1),nrow=n)
+    diag(a) <- rep(0,n)
+    
+    #what should this be?
+    init.x <- preIntegration
+    
+    mougi_model <- function(t,x,parms){
+      dx <- x * (r - s*x + g * (a %*% x) - (t(a) %*% x))
+      list(dx)
+    }
+    
+    n.integrate <- function(time=time, init.x= init.x, model=model){
+      t.out <- seq(time$start,time$end,length=time$steps)
+      as.data.frame(lsoda(init.x, t.out, model, parms = parms))
+    }
+    
+    # Integration window
+    time <- list(start = 0, end = 100, steps = 100)
+    # dummy variable for lvm() function defined above
+    parms <- c(0) ### dummy variable (can have any numerical value)
+    
+    dataset <- n.integrate(time, init.x, model = mougi_model)
+    subsets[step] <- dataset
+    
+    postIntegration <- unlist(dataset[nrow(dataset), 2:length(dataset)], use.names=FALSE)
+    allIslandPersistences <- c(allIslandPersistences, postIntegration)
+    
+    speciesSurvived <- postIntegration > 10^-5
+    survivors <- c(1:sum(speciesSurvived == TRUE))
+    #counter = 1
+    #for(i in 1:length(speciesSurvived)){
+    #  if(speciesSurvived[i]) {
+    #    survivors[counter] <- i+1
+    #    counter <- counter + 1
+    #  }
+    #}
+    remainingMainlandSpecies <- length(survivors)
+    
+    endIslandIndicies <- c(endIslandIndicies, survivors)
+    for(i in endIslandIndicies){
+      tmp <- match(i, postIntegration)
+      endIslandPersistences <- c(endIslandPersistences, postIntegration[tmp])
+    }
   }
-  
-  #integration function
-  L <- round(numSpecies^2*C)  ## calculate number of links from S and C
-  
-  xxx <- Cascade.model(numSpecies, L, N)
-  
-  n <- numSpecies
-  r <- runif(n, -1,1)
-  s <- runif(n, 1,1)
-  g <- runif(n)
-  a <- xxx * matrix(runif(n*n, 0,1),nrow=n)
-  diag(a) <- rep(0,n)
-  
-  init.x <- randSpecies
-  
-  mougi_model <- function(t,x,parms){
-    dx <- x * (r - s*x + g * (a %*% x) - (t(a) %*% x))
-    list(dx)
-  }
-  
-  n.integrate <- function(time=time, init.x= init.x, model=model){
-    t.out <- seq(time$start,time$end,length=time$steps)
-    as.data.frame(lsoda(init.x, t.out, model, parms = parms))
-  }
-  
-  # Integration window
-  time <- list(start = 0, end = 100, steps = 100)
-  # dummy variable for lvm() function defined above
-  parms <- c(0) ### dummy variable (can have any numerical value)
-  
-  
-  subsetData <- n.integrate(time, init.x, model = mougi_model)
   
   colnames(subsetData) <- speciesIndicies
   return(subsetData)
@@ -194,27 +241,49 @@ nStarGraph <- function(container, Nstar, interval=0.5, nI = 5) {
   #creating matrix of NStar for all CvNs
   meanData <- container$mean
   community <- container$communities
-  nstarMatrix <- data.frame(matrix(nrow=nrow(meanData), ncol=ncol(meanData)))
-  for(i in 1:ncol(nstarMatrix)){
-    nstarMatrix[i] <- meanData[,i]*as.numeric(colnames(meanData)[i])
+  nStarMatrix <- data.frame(matrix(nrow=nrow(meanData), ncol=ncol(meanData)))
+  for(i in 1:ncol(nStarMatrix)){
+    nStarMatrix[i] <- meanData[,i]*as.numeric(colnames(meanData)[i])
   }
-  colnames(nstarMatrix) <- colnames(meanData)
-  rownames(nstarMatrix) <- rownames(meanData)
-  print(plotGraph(nstarMatrix, "N*", xax="Species", yax="Connectance"))
+  
+  colnames(nStarMatrix) <- colnames(meanData)
+  rownames(nStarMatrix) <- rownames(meanData)
+  print(plotGraph(nStarMatrix, "N*", xax="Species", yax="Connectance"))
+  print("N* Matrix:")
+  print(nStarMatrix)
   
   #finding the communities that have the desired Nstar within the set interval
-  indicies <- which(nstarMatrix > Nstar-interval & nstarMatrix < Nstar+interval, arr.ind = TRUE)
+  indicies <- which(nStarMatrix > Nstar-interval & nStarMatrix < Nstar+interval, arr.ind = TRUE)
   indicies <- as.data.frame(indicies)
+  if(nrow(indicies)==0)
+    return("No communities with that persistence.")
   colnames(indicies) <- c("Connectance", "Species")
-  colnames(nstarMatrix) <- colnames(meanData)
-  rownames(nstarMatrix) <- rownames(meanData)
+  colnames(nStarMatrix) <- colnames(meanData)
+  rownames(nStarMatrix) <- rownames(meanData)
+  
+  #Deprecated check for invalid CvN Pairs
+  # for(i in 1:nrow(indicies)) {
+  #   R <- indicies[i,][[1]]
+  #   C <- indicies[i,][[2]]
+  #   S <- as.numeric(rownames(meanData)[R])
+  #   C <- as.numeric(colnames(meanData)[C])
+  #   if(round(S^2*C)==-1)
+  #     print(c(S,C))
+  # }
+  
+  #Select random community from indicies of acceptable communities
   indicies <- indicies[sample(nrow(indicies), 1), ]
   connectance <- as.numeric(rownames(meanData)[[indicies[[1]]]])
-  species <- as.numeric(colnames(meanData)[[indicies[[2]]]])
-  
+  startingSpecies <- as.numeric(colnames(meanData)[[indicies[[2]]]])
+
   #selecting a random community from the communities that satisfy Nstar
+  L <- round(startingSpecies^2*connectance)
+  if(((startingSpecies^2 - startingSpecies)/2 - L) == -1)
+    return("L value below 0")
   community <- a$communities[[sample(length(community), 1)]][[indicies[[1]]]][[indicies[[2]]]]
-  
+  if(is.null(community))
+    return("There are no communities that satisfy Nstar. Increase the search interval or pick a new value.")
+
   #plotting a subset of the species in the Nstar community, integrated through time
   subset <- subsetPath(community, nI, connectance)
   subsetMelt <- melt(subset, id.vars = "time")
@@ -223,6 +292,5 @@ nStarGraph <- function(container, Nstar, interval=0.5, nI = 5) {
     ylab("Species Density") +
     xlab("Time") +
     geom_line(mapping = aes(x=time, y=Density, color = Species))
-  print(densityPlot)
-  return(c(connectance, round(species*0.25)))
+  return(densityPlot)
 }
