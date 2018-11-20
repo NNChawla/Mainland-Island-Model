@@ -78,7 +78,7 @@ CvNs <- function(S, C, step) {
     }
   
   }
-  
+  print("Hello")
   #calculating mean and sd of persistences across all N matricies of C x S
   for(CvN in 1:replicates) {
       
@@ -99,7 +99,7 @@ CvNs <- function(S, C, step) {
       stdDevs[[rowC]][[colN]] <- sd(stdDevs[[rowC]][[colN]])
     }
   }
-  
+  print("I am here")
   #assigning labels to means and sd data.frames for easier reading
   speciesLabels <- c(seq((S/(C/step)), S, (S/(C/step))))
   connectanceLabels <- c(seq(step, C, step))
@@ -120,7 +120,7 @@ CvNs <- function(S, C, step) {
     means <- means[-c(remove), ]
     stdDevs <- stdDevs[-c(remove), ]
   }
-  
+  print("here now")
   #returning containers
   matricies <- list("communities" = communities, "persistences" = persistences, "mean" = means, "stdDev" = stdDevs)
   return(matricies)
@@ -154,6 +154,8 @@ subsetPath <- function(community, numSpecies, C) {
   if(numSpecies > nStar)
     return(print("nI is greater than N*"))
   
+  print(c("first: ", speciesSurvived, persistingSpecies, nStar, C))
+  
   #the returned data set should be all of the integrations throughout time
   numSteps <- ceiling(nStar/numSpecies)
   allIslandPersistences <- c()
@@ -161,6 +163,7 @@ subsetPath <- function(community, numSpecies, C) {
   endIslandIndicies <- c()
   endIslandPersistences <- c()
   subsets <- list()
+  remainingMainlandSpecies <- 10000000 #arbitrarily large value
   
   for(step in 1:numSteps) {
     
@@ -176,14 +179,15 @@ subsetPath <- function(community, numSpecies, C) {
       randSpecies[i] <- community[1, randSpecies[i]]
     }
     
-    allIslandIndicies <- c(allIslandIndicies, speciesIndicies[2:numSpecies+1])
+    allIslandIndicies <- c(allIslandIndicies, as.numeric(speciesIndicies[1:numSpecies+1])+1)
     preIntegration <- c(endIslandPersistences, randSpecies)
+    print(c("second: ", numSpecies, randSpecies, "pspec", persistingSpecies, "specInd",  speciesIndicies, "all indicies: ", allIslandIndicies))
     
     #integration function
     L <- round(numSpecies^2*C)  ## calculate number of links from S and C
-  
-    xxx <- Cascade.model(numSpecies, L, N)
+    N <- 1
     
+    xxx <- Cascade.model(numSpecies, L, N)
     n <- numSpecies
     r <- runif(n, -1,1)
     s <- runif(n, 1,1)
@@ -217,24 +221,28 @@ subsetPath <- function(community, numSpecies, C) {
     
     speciesSurvived <- postIntegration > 10^-5
     survivors <- c(1:sum(speciesSurvived == TRUE))
-    #counter = 1
-    #for(i in 1:length(speciesSurvived)){
-    #  if(speciesSurvived[i]) {
-    #    survivors[counter] <- i+1
-    #    counter <- counter + 1
-    #  }
-    #}
+    
+    print(c("third: ", postIntegration, allIslandPersistences, speciesSurvived, survivors))
+    counter = 1
+    for(i in 1:length(speciesSurvived)){
+      if(speciesSurvived[i]) {
+        survivors[counter] <- i+1
+        counter <- counter + 1
+      }
+    }
     remainingMainlandSpecies <- length(survivors)
     
     endIslandIndicies <- c(endIslandIndicies, survivors)
     for(i in endIslandIndicies){
-      tmp <- match(i, postIntegration)
-      endIslandPersistences <- c(endIslandPersistences, postIntegration[tmp])
+      endIslandPersistences <- c(endIslandPersistences, postIntegration[i-1])
     }
+    endIslandIndicies <- #corresponding right species indicies
+    
+    print(c("fourth: ", remainingMainlandSpecies, endIslandIndicies, endIslandPersistences))
   }
   
-  colnames(subsetData) <- speciesIndicies
-  return(subsetData)
+  #colnames(subsetData) <- speciesIndicies
+  return(subsets)
 }
 
 nStarGraph <- function(container, Nstar, interval=0.5, nI = 5) {
