@@ -255,7 +255,7 @@ subsetPath <- function(community, numSpecies, C) {
   return(subsets)
 }
 
-nStarGraph <- function(container, Nstar, interval=0.5, nI = 5) {
+nStarGraph <- function(container, Nstar, interval = 0.5, nI = 5, replace_sp = FALSE) {
   #creating matrix of NStar for all CvNs
   meanData <- container$mean
   community <- container$communities
@@ -305,7 +305,7 @@ nStarGraph <- function(container, Nstar, interval=0.5, nI = 5) {
   print(c(indicies[[1]], indicies[[2]]))
 
   #plotting a subset of the species in the Nstar community, integrated through time
-  subset <- subsetPath(community, nI, connectance)
+  subset <- subsetPath(community, nI, connectance, replace_sp)
   subsetMelt <- melt(subset, id.vars = "time")
   colnames(subsetMelt) <- c("time", "Species", "Density")
   densityPlot <- ggplot(subsetMelt) +
