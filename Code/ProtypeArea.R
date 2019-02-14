@@ -1,7 +1,7 @@
 #returns subset of community integrated through time using original final densities
 subsetPath <- function(community, numSpecies, C, replace_sp) {
   
-  print("1")
+  #print("1")
   
   livingAndDead <- community[nrow(community),2:length(community)] > 10^-5 #getting the status of each species
   w <- list()
@@ -13,7 +13,7 @@ subsetPath <- function(community, numSpecies, C, replace_sp) {
     }
   }
   
-  print("2")
+  #print("2")
   
   #Mandatory Check
   nStar <- length(w)
@@ -31,14 +31,14 @@ subsetPath <- function(community, numSpecies, C, replace_sp) {
   else
     numSteps <- 10 #########################################################################################Change later
   
-  print("3")
+  #print("3")
   
   for(step in 1:numSteps) {
     
       if(!replace_sp & (numSpecies > wSize))
           numSpecies <- wSize
       
-      print("4")
+      #print("4")
       
       if(step == 1) {
         
@@ -49,20 +49,17 @@ subsetPath <- function(community, numSpecies, C, replace_sp) {
         if(!replace_sp)
           w <- setdiff(w, xo)
         
-        print("5")
-        
+        #print("5")
         ############################################################################### Since this is a list it removes the names when you setdiff; needs to re-name each element as "Species Element"
         
         #Retrieving the appropriate persistences
-        for(i in unlist(xo, use.names=FALSE))
+        for(i in unlist(xo, use.names=FALSE)){
           xo[paste("Species", i)] <- community[nrow(community), i]
+        }
         
-        print("6")
+        tmpBAL["Before"] <- list(xo)
         
-        tmpBAL["Before"] <- xo
-        
-        print(xo)
-        print("7")
+        #print("7")
         
         L <- round(numSpecies^2*C)
         N <- 1
@@ -91,7 +88,8 @@ subsetPath <- function(community, numSpecies, C, replace_sp) {
         parms <- c(0)
         tmp <- n.integrate(time, init.x, model = mougi_model)
         
-        print("8")
+        tmpBAL["Between"] <- list(tmp)
+        #print("8")
         
         tmp <- unlist(tmp[nrow(tmp), 2:length(tmp)], use.names=FALSE)
         for(i in 1:length(tmp))
@@ -99,26 +97,32 @@ subsetPath <- function(community, numSpecies, C, replace_sp) {
           xo[i] <- tmp[i]
         }
         
-        tmpBAL["After"] <- xo
+        tmpBAL["After"] <- list(xo)
         
-        print("9")
-        print(xo)
+        #print("9")
         
-        for(j in 1:length(xo))
-        {
-          if(xo[j] < 10^-5)
-            xo[j] <- NULL
+        count <- length(xo)
+        i <- 1
+        while(!(i>count)) {
+          if(xo[i] < 10^-15){
+            xo[i] <- NULL
+            count <- length(xo)
+          }
+          else{
+            i <- i + 1
+          }
         }
         
-        tmpBAL["Living"] <- xo
+        tmpBAL["Living"] <- list(xo)
         
-        print("10")
+        #print("10")
         
         if(!replace_sp)
           wSize <- length(w)
         
-        BAL[step] <- tmpBAL
-        print("11")
+        BAL[step] <- list(tmpBAL)
+        
+        #print("11")
       }
       
       else 
@@ -130,21 +134,28 @@ subsetPath <- function(community, numSpecies, C, replace_sp) {
         if(!replace_sp)
           w <- setdiff(w, y)
         
+        #print("5")
         ############################################################################### Since this is a list it removes the names when you setdiff; needs to re-name each element as "Species Element"
         
         #Retrieving the appropriate persistences
         for(i in unlist(y, use.names=FALSE))
           y[paste("Species", i)] <- community[nrow(community), i]
         
+        #print("6")
+        
         y <- c(y, xo)
         
-        tmpBAL["Before"] <- y
+        tmpBAL["Before"] <- list(y)
         
-        L <- round(numSpecies^2*C)
+        ySize <- length(y)
+        
+        #print("7")
+        
+        L <- round(ySize^2*C)
         N <- 1
         
-        xxx <- Cascade.model(numSpecies, L, N)
-        n <- numSpecies
+        xxx <- Cascade.model(ySize, L, N)
+        n <- ySize
         r <- runif(n, -1,1)
         s <- runif(n, 1,1)
         g <- runif(n)
@@ -167,30 +178,53 @@ subsetPath <- function(community, numSpecies, C, replace_sp) {
         parms <- c(0)
         
         tmp <- n.integrate(time, init.x, model = mougi_model)
+        
+        tmpBAL["Between"] <- list(tmp)
+        #print("8")
+        
         tmp <- unlist(tmp[nrow(tmp), 2:length(tmp)], use.names=FALSE)
         for(i in 1:length(tmp))
         {
           y[i] <- tmp[i]
         }
         
-        tmpBAL["After"] <- y
+        tmpBAL["After"] <- list(y)
         
-        for(i in 1:length(y))
-        {
-          if(y[i] < 10^-5)
+        #print("9")
+        
+        count <- length(y)
+        i <- 1
+        while(!(i>count)) {
+          if(y[i] < 10^-15){
             y[i] <- NULL
+            count <- length(y)
+          }
+          else{
+            i <- i + 1
+          }
         }
         
-        tmpBAL["Living"] <- y
+        tmpBAL["Living"] <- list(y)
+        
+        #print("10")
         
         xo <- y
         
         if(!replace_sp)
           wSize <- length(w)
         
-        BAL[step] <- tmpBAL
+        BAL[step] <- list(tmpBAL)
+        #print("11")
       }
   }
   
   return(BAL)
 }
+
+subsetMelt <- melt(x[[1]]["Between"], id.vars = "time")
+colnames(subsetMelt) <- c("time", "Species", "Density")
+densityPlot <- ggplot(subsetMelt) +
+  ylab("Species Density") +
+  xlab("Time") +
+  geom_line(mapping = aes(x=time, y=Density, color = Species))
+print(densityPlot)
