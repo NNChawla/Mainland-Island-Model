@@ -142,7 +142,7 @@ subsetPath <- function(community, numSpecies, C, replace_sp) {
   
   #print("1")
   
-  livingAndDead <- community[nrow(community),2:length(community)] > 10^-5 #getting the status of each species
+  livingAndDead <- community[nrow(community),2:length(community)] > 10^-15 #getting the status of each species
   w <- list()
   counter = 1
   for(i in 1:length(livingAndDead)){
@@ -431,6 +431,7 @@ nStarGraph <- function(container, Nstar, interval = 0.5, nI = 5, replace_sp = TR
   print(c(indicies[[1]], indicies[[2]]))
 
   #plotting a subset of the species in the Nstar community, integrated through time
+  wSize <- sum(community[nrow(community),2:length(community)] > 10^-15)
   subset <- subsetPath(community, nI, connectance, replace_sp)
   z <- c()
   for(i in 1:length(subset)){
@@ -446,13 +447,7 @@ nStarGraph <- function(container, Nstar, interval = 0.5, nI = 5, replace_sp = TR
     geom_step() +
     geom_point() +
     xlab("Step Number") +
-    ylab("Nisle")
+    ylab("Nisle") +
+    expand_limits(y=c(0,wSize))
   return(stepPlot)
-  #subsetMelt <- melt(subset[[1]]["Between"], id.vars = "time") #combine these maybe and make a cool
-  #colnames(subsetMelt) <- c("time", "Species", "Density") #really long graph that combines the betweens of all of them
-  #densityPlot <- ggplot(subsetMelt) +
-  #  ylab("Species Density") +
-  #  xlab("Time") +
-  #  geom_line(mapping = aes(x=time, y=Density, color = Species))
-  #return(densityPlot)
 }
