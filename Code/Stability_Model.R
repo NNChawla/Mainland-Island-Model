@@ -67,7 +67,7 @@ CvNs <- function(S, C, step) {
         
         out <- n.integrate(time, init.x, model = mougi_model)
         communities[[CvN]][[rowC]][[colN]] <- out
-        persistences[[CvN]][[rowC]][[colN]] <- mean(out[nrow(out),2:n+1] > 10^-5)
+        persistences[[CvN]][[rowC]][[colN]] <- mean(out[nrow(out),2:n+1] > 10^-15)
         
         S_step <- S_step + S/(C/step)
       }
