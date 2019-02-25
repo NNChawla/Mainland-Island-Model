@@ -159,48 +159,6 @@ subsetPath <- function(community, numSpecies, C, replace_sp) {
   if(numSpecies > nStar)
     return(print("nI is greater than N*"))
   
-<<<<<<< HEAD
-  print(c("first: ", speciesSurvived, persistingSpecies, nStar, C))
-  
-  #the returned data set should be all of the integrations throughout time
-  numSteps <- ceiling(nStar/numSpecies)
-  allIslandPersistences <- c()
-  allIslandIndicies <- c()
-  endIslandIndicies <- c()
-  endIslandPersistences <- c()
-  subsets <- list()
-  remainingMainlandSpecies <- 10000000 #arbitrarily large value
-  
-  for(step in 1:numSteps) {
-    
-    if(numSpecies > remainingMainlandSpecies)
-      numSpecies <- remainingMainlandSpecies
-    #selecting random subset of nI species from the persisting species
-    randSpecies <- sample(persistingSpecies, numSpecies, replace=FALSE)
-    persistingSpecies <- setdiff(persistingSpecies, randSpecies)
-    speciesIndicies <- c(1:numSpecies+1)
-    speciesIndicies[1] <- "time"
-    for(i in 1:numSpecies) {
-      speciesIndicies[i+1] <- randSpecies[i]-1
-      randSpecies[i] <- community[1, randSpecies[i]]
-    }
-    
-    allIslandIndicies <- c(allIslandIndicies, as.numeric(speciesIndicies[1:numSpecies+1])+1)
-    preIntegration <- c(endIslandPersistences, randSpecies)
-    print(c("second: ", numSpecies, randSpecies, "pspec", persistingSpecies, "specInd",  speciesIndicies, "all indicies: ", allIslandIndicies))
-    
-    #integration function
-    L <- round(numSpecies^2*C)  ## calculate number of links from S and C
-    N <- 1
-    
-    xxx <- Cascade.model(numSpecies, L, N)
-    n <- numSpecies
-    r <- runif(n, -1,1)
-    s <- runif(n, 1,1)
-    g <- runif(n)
-    a <- xxx * matrix(runif(n*n, 0,1),nrow=n)
-    diag(a) <- rep(0,n)
-=======
   xo <- NULL
   y <- NULL
   BAL <- list()
@@ -216,7 +174,6 @@ subsetPath <- function(community, numSpecies, C, replace_sp) {
   #print("3")
   
   for(step in 1:numSteps) {
->>>>>>> bbbfd04cbb3555a5b448b8265bdadd752f8d0b28
     
     if(!replace_sp & (numSpecies > wSize))
       numSpecies <- wSize
@@ -319,35 +276,6 @@ subsetPath <- function(community, numSpecies, C, replace_sp) {
       #print("11")
     }
     
-<<<<<<< HEAD
-    # Integration window
-    time <- list(start = 0, end = 100, steps = 100)
-    # dummy variable for lvm() function defined above
-    parms <- c(0) ### dummy variable (can have any numerical value)
-    
-    dataset <- n.integrate(time, init.x, model = mougi_model)
-    subsets[step] <- dataset
-    
-    postIntegration <- unlist(dataset[nrow(dataset), 2:length(dataset)], use.names=FALSE)
-    allIslandPersistences <- c(allIslandPersistences, postIntegration)
-    
-    speciesSurvived <- postIntegration > 10^-5
-    survivors <- c(1:sum(speciesSurvived == TRUE))
-    
-    print(c("third: ", postIntegration, allIslandPersistences, speciesSurvived, survivors))
-    counter = 1
-    for(i in 1:length(speciesSurvived)){
-      if(speciesSurvived[i]) {
-        survivors[counter] <- i+1
-        counter <- counter + 1
-      }
-    }
-    remainingMainlandSpecies <- length(survivors)
-    
-    endIslandIndicies <- c(endIslandIndicies, survivors)
-    for(i in endIslandIndicies){
-      endIslandPersistences <- c(endIslandPersistences, postIntegration[i-1])
-=======
     else 
     {
       tmpBAL <- list()
@@ -447,19 +375,10 @@ subsetPath <- function(community, numSpecies, C, replace_sp) {
       
       BAL[step] <- list(tmpBAL)
       #print("11")
->>>>>>> bbbfd04cbb3555a5b448b8265bdadd752f8d0b28
     }
-    endIslandIndicies <- #corresponding right species indicies
-    
-    print(c("fourth: ", remainingMainlandSpecies, endIslandIndicies, endIslandPersistences))
   }
   
-<<<<<<< HEAD
-  #colnames(subsetData) <- speciesIndicies
-  return(subsets)
-=======
   return(BAL)
->>>>>>> bbbfd04cbb3555a5b448b8265bdadd752f8d0b28
 }
 
 nStarGraph <- function(container, Nstar, interval = 0.5, nI = 5, replace_sp = TRUE, graphStep = 1) {
