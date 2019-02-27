@@ -2,6 +2,7 @@ library(deSolve)
 library(lattice)
 library(tidyverse)
 library(reshape)
+library(plyr)
 
 CvNs <- function(S, C, step) {
 
@@ -381,7 +382,7 @@ subsetPath <- function(community, numSpecies, C, replace_sp) {
   return(BAL)
 }
 
-nStarGraph <- function(container, Nstar, interval = 0.5, nI = 5, replace_sp = TRUE, graphStep = 1) {
+nStarGraph <- function(container, Nstar, interval = 0.5, nI = 5, replace_sp = TRUE, graphStep = 1, replicates = 10) {
   #creating matrix of NStar for all CvNs
   meanData <- container$mean
   community <- container$communities
@@ -432,22 +433,32 @@ nStarGraph <- function(container, Nstar, interval = 0.5, nI = 5, replace_sp = TR
 
   #plotting a subset of the species in the Nstar community, integrated through time
   wSize <- sum(community[nrow(community),2:length(community)] > 10^-15)
-  subset <- subsetPath(community, nI, connectance, replace_sp)
-  z <- c()
-  for(i in 1:length(subset)){
-    z <- c(z, lengths(subset[[i]]["Living"], use.names=FALSE))
-  }
-  z <- data.frame(z)
-  colnames(z) <- "y"
-  z["x"] <- c(1:nrow(z))
-  
   stepSize <- graphStep
-  z <- z[seq(1, nrow(z), stepSize), ]
-  stepPlot <- ggplot(data=z, aes(x=x, y=y)) +
-    geom_step() +
+  subset <- list()
+  frames <- list()
+  for(i in 1:replicates) {
+    subset[i] <- list(subsetPath(community, nI, connectance, replace_sp))
+    
+    z <- c()
+    for(j in 1:length(subset[[i]])){
+      z <- c(z, lengths(subset[[i]][[j]]["Living"], use.names=FALSE))
+    }
+    z <- data.frame(z)
+    colnames(z) <- i
+    z["Step"] <- c(1:nrow(z))
+    frames[[i]] <- z[seq(1, nrow(z), stepSize), ]
+  }
+  frames <- Reduce(function(x, y) merge(x=x, y=y, by="Step"), frames)
+  frames <- melt(frames, id.var="Step")
+  colnames(frames) <- c("Step", "Replicates", "value")
+  
+  stepPlot <- ggplot(data=frames, aes(x=Step, y=value, col=Replicates)) +
+    geom_line() +
     geom_point() +
+    ggtitle("Archipelago Migration Simulation") +
     xlab("Step Number") +
     ylab("Nisle") +
     expand_limits(y=c(0,wSize))
+  
   return(stepPlot)
 }
