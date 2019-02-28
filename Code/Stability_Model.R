@@ -139,7 +139,7 @@ plotGraph <- function(dataFrame, graphType, xax="Species", yax="Connectance") {
 }
 
 #returns subset of community integrated through time using original final densities
-subsetPath <- function(community, numSpecies, C, replace_sp) {
+subsetPath <- function(community, numSpecies, C, replace_sp, stepTime = 100) {
   
   #print("1")
   
@@ -235,7 +235,6 @@ subsetPath <- function(community, numSpecies, C, replace_sp) {
         as.data.frame(lsoda(init.x, t.out, model, parms = parms))
       }
       
-      stepTime <- 100
       time <- list(start = 0, end = stepTime, steps = stepTime)
       parms <- c(0)
       tmp <- n.integrate(time, init.x, model = mougi_model)
@@ -334,7 +333,6 @@ subsetPath <- function(community, numSpecies, C, replace_sp) {
         as.data.frame(lsoda(init.x, t.out, model, parms = parms))
       }
       
-      stepTime <- 100
       time <- list(start = 0, end = stepTime, steps = stepTime)
       parms <- c(0)
       
@@ -382,7 +380,7 @@ subsetPath <- function(community, numSpecies, C, replace_sp) {
   return(BAL)
 }
 
-nStarGraph <- function(container, Nstar, interval = 0.5, nI = 5, replace_sp = TRUE, graphStep = 1, replicates = 10) {
+nStarGraph <- function(container, Nstar, interval = 0.5, nI = 5, replace_sp = TRUE, graphStep = 1, replicates = 10, stepTime = 100) {
   #creating matrix of NStar for all CvNs
   meanData <- container$mean
   community <- container$communities
@@ -437,7 +435,7 @@ nStarGraph <- function(container, Nstar, interval = 0.5, nI = 5, replace_sp = TR
   subset <- list()
   frames <- list()
   for(i in 1:replicates) {
-    subset[i] <- list(subsetPath(community, nI, connectance, replace_sp))
+    subset[i] <- list(subsetPath(community, nI, connectance, replace_sp, stepTime))
     
     z <- c()
     for(j in 1:length(subset[[i]])){
