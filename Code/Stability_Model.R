@@ -423,7 +423,7 @@ nStarGraph <- function(container, Nstar, interval = 0.5, nI = 5, replace_sp = TR
   L <- round(startingSpecies^2*connectance)
   if(((startingSpecies^2 - startingSpecies)/2 - L) == -1)
     return("L value below 0")
-  community <- a$communities[[sample(length(community), 1)]][[indicies[[1]]]][[indicies[[2]]]]
+  community <- container$communities[[sample(length(community), 1)]][[indicies[[1]]]][[indicies[[2]]]]
   if(is.null(community))
     return("There are no communities that satisfy Nstar. Increase the search interval or pick a new value.")
   
