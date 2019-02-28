@@ -449,6 +449,7 @@ nStarGraph <- function(container, Nstar, interval = 0.5, nI = 5, replace_sp = TR
     frames[[i]] <- z[seq(1, nrow(z), stepSize), ]
   }
   frames <- Reduce(function(x, y) merge(x=x, y=y, by="Step"), frames)
+  frames["Mean"] <- rowMeans(frames)
   frames <- melt(frames, id.var="Step")
   colnames(frames) <- c("Step", "Replicates", "value")
   
