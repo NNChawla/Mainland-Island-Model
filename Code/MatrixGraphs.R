@@ -9,22 +9,22 @@ matrixGraph <- function(container, nI = 5, replace_sp = TRUE, graphStep = 1, rep
   
   colnames(nStarMatrix) <- colnames(meanData)
   rownames(nStarMatrix) <- rownames(meanData)
-  meanMatrix <- nStarMatrix
+  meanMatrix <- list()
+  
+  #Data.Frame [r, c] List [[r]][[c]]
   print("N* Matrix:")
   print(nStarMatrix)
   
   for(i in 1:nrow(nStarMatrix)){
+    meanMatrix[[i]] <- list()
     for(j in 1:ncol(nStarMatrix)) {
-      
-      colnames(nStarMatrix) <- colnames(meanData)
-      rownames(nStarMatrix) <- rownames(meanData)
       
       connectance <- as.numeric(rownames(meanData)[[i]])
       startingSpecies <- as.numeric(colnames(meanData)[[j]])
       
       #selecting a random community from the communities that satisfy Nstar
-      L <- round(startingSpecies^2*connectance)
-      if(((startingSpecies^2 - startingSpecies)/2 - L) == -1) {
+      L <- round(nI^2*connectance)
+      if(((nI^2 - nI)/2 - L) < -0.5) {
         meanMatrix[[i]][[j]] <- NA
         next
       }
@@ -36,7 +36,7 @@ matrixGraph <- function(container, nI = 5, replace_sp = TRUE, graphStep = 1, rep
         meanMatrix[[i]][[j]] <- NA
         next
       }
-      #print(c(i, j))
+      print(c(connectance, startingSpecies))
       
       #plotting a subset of the species in the Nstar community, integrated through time
       stepSize <- graphStep
@@ -55,9 +55,14 @@ matrixGraph <- function(container, nI = 5, replace_sp = TRUE, graphStep = 1, rep
         frames[[k]] <- z[seq(1, nrow(z), stepSize), ]
       }
       frames <- Reduce(function(x, y) merge(x=x, y=y, by="Step"), frames)
+      
       frames <- rowMeans(frames[2:length(frames)])
+      mat <- data.frame(matrix(nrow=length(frames), ncol=2))
+      colnames(mat) <- c("Step", paste(i, j))
+      mat["Step"] <- c(1:length(frames))
+      mat[paste(i, j)] <- frames
       #print(c(i, j))
-      meanMatrix[[i]][[j]] <- list(frames)
+      meanMatrix[[i]][[j]] <- list(mat)
      }
   }
   return(meanMatrix)

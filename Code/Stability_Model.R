@@ -32,7 +32,7 @@ CvNs <- function(S, C, step) {
         L <- round(S_step^2*C_step)  ## calculate number of links from S and C
         
         # skipping community generation because formula is less than 0 which throws error
-        if (((S_step^2 - S_step)/2 - L) < 0) {
+        if (((S_step^2 - S_step)/2 - L) < -0.5) {
           S_step <- S_step + S/(C/step)
           next
         }
@@ -421,7 +421,7 @@ nStarGraph <- function(container, Nstar, interval = 0.5, nI = 5, replace_sp = TR
 
   #selecting a random community from the communities that satisfy Nstar
   L <- round(startingSpecies^2*connectance)
-  if(((startingSpecies^2 - startingSpecies)/2 - L) == -1)
+  if(((startingSpecies^2 - startingSpecies)/2 - L) < -0.5)
     return("L value below 0")
   community <- container$communities[[sample(length(community), 1)]][[indicies[[1]]]][[indicies[[2]]]]
   if(is.null(community))
