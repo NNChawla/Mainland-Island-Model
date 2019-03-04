@@ -1,4 +1,4 @@
-matrixGraph <- function(container, nI = 5, replace_sp = TRUE, graphStep = 1, replicates = 10, stepTime = 100) {
+meanMatrix <- function(container, nI = 5, replace_sp = TRUE, graphStep = 1, replicates = 10, stepTime = 100) {
   #creating matrix of NStar for all CvNs
   meanData <- container$mean
   mainlands <- container$communities
@@ -25,7 +25,7 @@ matrixGraph <- function(container, nI = 5, replace_sp = TRUE, graphStep = 1, rep
       #selecting a random community from the communities that satisfy Nstar
       L <- round(nI^2*connectance)
       if(((nI^2 - nI)/2 - L) < -0.5) {
-        meanMatrix[[i]][[j]] <- NA
+        meanMatrix[[i]][[j]] <- NULL
         next
       }
       
@@ -33,7 +33,7 @@ matrixGraph <- function(container, nI = 5, replace_sp = TRUE, graphStep = 1, rep
       #print(rpNum)
       community <- container$communities[[rpNum]][[i]][[j]]
       if(is.null(community)) {
-        meanMatrix[[i]][[j]] <- NA
+        meanMatrix[[i]][[j]] <- NULL
         next
       }
       print(c(connectance, startingSpecies))
@@ -62,18 +62,29 @@ matrixGraph <- function(container, nI = 5, replace_sp = TRUE, graphStep = 1, rep
       mat["Step"] <- c(1:length(frames))
       mat[paste(i, j)] <- frames
       #print(c(i, j))
-      meanMatrix[[i]][[j]] <- list(mat)
+      meanMatrix[[i]][[j]] <- mat
      }
   }
-  return(meanMatrix)
-  stepPlot <- ggplot(data=frames, aes(x=Step, y=value, col=Replicates)) +
-    geom_line() +
-    geom_point() +
-    ggtitle("Archipelago Migration Simulation") +
-    xlab("Step Number") +
-    ylab("Nisle") +
-    expand_limits(y=c(0,wSize))
   
-  print(stepPlot)
-  return(yield)
+  frames <- list()
+  for(i in 1:length(meanMatrix)){
+    frames[[i]] <- Reduce(function(x, y) merge(x=x, y=y, by="Step"), meanMatrix[[i]])
+  }
+  frames <- Reduce(function(x, y) merge(x=x, y=y, by="Step"), frames)
+  frames["Mean"] <- rowMeans(frames[2:length(frames)])
+  return(frames)
 }
+
+immStep <- c(5, 10)
+timeStep <- c(10, 50, 100, 200)
+matrixGraph <- function(container, imms, times){
+  plotMeans <- list()
+  for(i in 1:length(imms)){
+    plotMeans[[i]] <- list()
+    for(j in 1:length(times)){
+      plotMeans[[i]][[j]] <- meanMatrix(container, nI=imms[[i]], stepTime=times[[j]])
+    }
+  }
+  return(plotMeans)
+}
+
