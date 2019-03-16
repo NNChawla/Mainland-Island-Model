@@ -63,7 +63,7 @@ meanMatrix <- function(container, nI = 5, replace_sp = TRUE, graphStep = 1, repl
       mat[paste(i, j)] <- frames
       #print(c(i, j))
       meanMatrix[[i]][[j]] <- mat
-     }
+    }
   }
   
   frames <- list()
@@ -86,5 +86,11 @@ matrixGraph <- function(container, imms, times){
     }
   }
   return(plotMeans)
+  
+  for(i in 1:length(w)){
+    for(j in 1:length(w[[i]])) {
+      w[[i]][[j]] <- w[[i]][[j]]["Mean"]
+    }
+  }
 }
 
