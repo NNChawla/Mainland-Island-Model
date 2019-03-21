@@ -17,12 +17,13 @@ meanMatrix <- function(container, nI = 5, replace_sp = TRUE, graphStep = 1, repl
   
   for(i in 1:nrow(nStarMatrix)){
     meanMatrix[[i]] <- list()
+    #if(i!=8)
+      #next
     for(j in 1:ncol(nStarMatrix)) {
       
       connectance <- as.numeric(rownames(meanData)[[i]])
       startingSpecies <- as.numeric(colnames(meanData)[[j]])
       
-      #selecting a random community from the communities that satisfy Nstar
       L <- round(nI^2*connectance)
       if(((nI^2 - nI)/2 - L) < -0.5) {
         meanMatrix[[i]][[j]] <- NULL
@@ -38,7 +39,6 @@ meanMatrix <- function(container, nI = 5, replace_sp = TRUE, graphStep = 1, repl
       }
       print(c(connectance, startingSpecies))
       
-      #plotting a subset of the species in the Nstar community, integrated through time
       stepSize <- graphStep
       subset <- list()
       frames <- list()
@@ -54,24 +54,24 @@ meanMatrix <- function(container, nI = 5, replace_sp = TRUE, graphStep = 1, repl
         z["Step"] <- c(1:nrow(z))
         frames[[k]] <- z[seq(1, nrow(z), stepSize), ]
       }
-      frames <- Reduce(function(x, y) merge(x=x, y=y, by="Step"), frames)
+      frames <- Reduce(function(x, y) merge(x=x, y=y, by="Step", all.y = TRUE), frames)
       
-      frames <- rowMeans(frames[2:length(frames)])
+      frames <- rowMeans(frames[2:length(frames)], na.rm = TRUE)
       mat <- data.frame(matrix(nrow=length(frames), ncol=2))
       colnames(mat) <- c("Step", paste(i, j))
       mat["Step"] <- c(1:length(frames))
       mat[paste(i, j)] <- frames
-      #print(c(i, j))
       meanMatrix[[i]][[j]] <- mat
     }
+    return(meanMatrix)
   }
   
   frames <- list()
   for(i in 1:length(meanMatrix)){
-    frames[[i]] <- Reduce(function(x, y) merge(x=x, y=y, by="Step"), meanMatrix[[i]])
+    frames[[i]] <- Reduce(function(x, y) merge(x=x, y=y, by="Step", all.y = TRUE), meanMatrix[[i]])
   }
-  frames <- Reduce(function(x, y) merge(x=x, y=y, by="Step"), frames)
-  frames["Mean"] <- rowMeans(frames[2:length(frames)])
+  frames <- Reduce(function(x, y) merge(x=x, y=y, by="Step", all.y = TRUE), frames)
+  frames["Mean"] <- rowMeans(frames[2:length(frames)], na.rm = TRUE)
   return(frames)
 }
 
@@ -93,4 +93,3 @@ matrixGraph <- function(container, imms, times){
     }
   }
 }
-

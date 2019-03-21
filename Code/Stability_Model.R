@@ -141,8 +141,6 @@ plotGraph <- function(dataFrame, graphType, xax="Species", yax="Connectance") {
 #returns subset of community integrated through time using original final densities
 subsetPath <- function(community, numSpecies, C, replace_sp, stepTime = 100) {
   
-  #print("1")
-  
   livingAndDead <- community[nrow(community),2:length(community)] > 10^-15 #getting the status of each species
   w <- list()
   counter = 1
@@ -157,8 +155,9 @@ subsetPath <- function(community, numSpecies, C, replace_sp, stepTime = 100) {
   
   #Mandatory Check
   nStar <- length(w)
-  if(numSpecies > nStar)
+  if(numSpecies > nStar){
     return(print("nI is greater than N*"))
+  }
   
   xo <- NULL
   y <- NULL
