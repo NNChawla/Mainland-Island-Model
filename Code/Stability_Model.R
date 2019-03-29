@@ -4,7 +4,7 @@ library(tidyverse)
 library(reshape)
 library(plyr)
 
-CvNs <- function(S, C, step) {
+CvNs <- function(S, C, step, intTime = 100) {
 
   ## make some random, cascade, and niche food webs
   ## S is species richness
@@ -16,6 +16,7 @@ CvNs <- function(S, C, step) {
   #initializing containers to be returned
   communities <- rep(list(rep(list(vector("list", matrixSize)), matrixSize)), replicates)
   persistences <- rep(list(rep(list(vector("list", matrixSize)), matrixSize)), replicates)
+  #interactions <- rep(list(rep(list(vector("list", matrixSize)), matrixSize)), replicates)
   means <- rep(list(rep(list(0), matrixSize)), matrixSize)
   stdDevs <- rep(list(rep(list(vector("integer", replicates)), matrixSize)), matrixSize)
 
@@ -42,8 +43,8 @@ CvNs <- function(S, C, step) {
         
         # Number of Species
         n <- S_step
-        r <- runif(n, -1,1)
-        s <- runif(n, 1,1)
+        r <- runif(n, -1,1) #growth rate
+        s <- runif(n, 1,1) #desnity dependent inhibition
         g <- runif(n)
         a <- xxx * matrix(runif(n*n, 0,1),nrow=n)
         diag(a) <- rep(0,n)
@@ -61,7 +62,7 @@ CvNs <- function(S, C, step) {
         }
         
         # Integration window
-        time <- list(start = 0, end = 100, steps = 100)
+        time <- list(start = 0, end = intTime, steps = intTime)
         # dummy variable for lvm() function defined above
         parms <- c(0) ### dummy variable (can have any numerical value)
         
@@ -69,6 +70,7 @@ CvNs <- function(S, C, step) {
         out <- n.integrate(time, init.x, model = mougi_model)
         communities[[CvN]][[rowC]][[colN]] <- out
         persistences[[CvN]][[rowC]][[colN]] <- mean(out[nrow(out),2:n+1] > 10^-15)
+        #interactions[[CvN]][[rowC]][[colN]] <- list(L, xxx, n, r, s, g, a, init.x)
         
         S_step <- S_step + S/(C/step)
       }
@@ -156,7 +158,8 @@ subsetPath <- function(community, numSpecies, C, replace_sp, stepTime = 100) {
   #Mandatory Check
   nStar <- length(w)
   if(numSpecies > nStar){
-    return(print("nI is greater than N*"))
+    print("nI is greater than N*")
+    return(NA)
   }
   
   xo <- NULL
@@ -379,7 +382,7 @@ subsetPath <- function(community, numSpecies, C, replace_sp, stepTime = 100) {
   return(BAL)
 }
 
-nStarGraph <- function(container, Nstar, interval = 0.5, nI = 5, replace_sp = TRUE, graphStep = 1, replicates = 10, stepTime = 100) {
+nStarGraph <- function(container, Nstar, tolerance = 0.5, nI = 5, replace_sp = TRUE, graphStep = 1, replicates = 10, stepTime = 100) {
   #creating matrix of NStar for all CvNs
   meanData <- container$mean
   community <- container$communities
@@ -395,7 +398,7 @@ nStarGraph <- function(container, Nstar, interval = 0.5, nI = 5, replace_sp = TR
   print(nStarMatrix)
   
   #finding the communities that have the desired Nstar within the set interval
-  indicies <- which(nStarMatrix > Nstar-interval & nStarMatrix < Nstar+interval, arr.ind = TRUE)
+  indicies <- which(nStarMatrix > Nstar-tolerance & nStarMatrix < Nstar+tolerance, arr.ind = TRUE)
   indicies <- as.data.frame(indicies)
   if(nrow(indicies)==0)
     return("No communities with that persistence.")
@@ -419,8 +422,8 @@ nStarGraph <- function(container, Nstar, interval = 0.5, nI = 5, replace_sp = TR
   startingSpecies <- as.numeric(colnames(meanData)[[indicies[[2]]]])
 
   #selecting a random community from the communities that satisfy Nstar
-  L <- round(startingSpecies^2*connectance)
-  if(((startingSpecies^2 - startingSpecies)/2 - L) < -0.5)
+  L <- round(nI^2*connectance)
+  if(((nI^2 - nI)/2 - L) < -0.5)
     return("L value below 0")
   community <- container$communities[[sample(length(community), 1)]][[indicies[[1]]]][[indicies[[2]]]]
   if(is.null(community))
@@ -435,7 +438,6 @@ nStarGraph <- function(container, Nstar, interval = 0.5, nI = 5, replace_sp = TR
   frames <- list()
   for(i in 1:replicates) {
     subset[i] <- list(subsetPath(community, nI, connectance, replace_sp, stepTime))
-    
     z <- c()
     for(j in 1:length(subset[[i]])){
       z <- c(z, lengths(subset[[i]][[j]]["Living"], use.names=FALSE))

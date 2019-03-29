@@ -17,10 +17,9 @@ meanMatrix <- function(container, nI = 5, replace_sp = TRUE, graphStep = 1, repl
   
   for(i in 1:nrow(nStarMatrix)){
     meanMatrix[[i]] <- list()
-    #if(i!=8)
+    #if(i!=4)
       #next
     for(j in 1:ncol(nStarMatrix)) {
-      
       connectance <- as.numeric(rownames(meanData)[[i]])
       startingSpecies <- as.numeric(colnames(meanData)[[j]])
       
@@ -44,7 +43,6 @@ meanMatrix <- function(container, nI = 5, replace_sp = TRUE, graphStep = 1, repl
       frames <- list()
       for(k in 1:replicates) {
         subset[k] <- list(subsetPath(community, nI, connectance, replace_sp, stepTime))
-        
         z <- c()
         for(l in 1:length(subset[[k]])){
           z <- c(z, lengths(subset[[k]][[l]]["Living"], use.names=FALSE))
@@ -52,10 +50,13 @@ meanMatrix <- function(container, nI = 5, replace_sp = TRUE, graphStep = 1, repl
         z <- data.frame(z)
         colnames(z) <- k
         z["Step"] <- c(1:nrow(z))
+        if(is.na(subset[k]))
+          z[[1]] <- NA
         frames[[k]] <- z[seq(1, nrow(z), stepSize), ]
       }
+      #if(j==ncol(nStarMatrix))
+        #return(frames)
       frames <- Reduce(function(x, y) merge(x=x, y=y, by="Step", all.y = TRUE), frames)
-      
       frames <- rowMeans(frames[2:length(frames)], na.rm = TRUE)
       mat <- data.frame(matrix(nrow=length(frames), ncol=2))
       colnames(mat) <- c("Step", paste(i, j))
@@ -63,7 +64,6 @@ meanMatrix <- function(container, nI = 5, replace_sp = TRUE, graphStep = 1, repl
       mat[paste(i, j)] <- frames
       meanMatrix[[i]][[j]] <- mat
     }
-    return(meanMatrix)
   }
   
   frames <- list()
