@@ -16,7 +16,7 @@ CvNs <- function(S, C, step, intTime = 100) {
   #initializing containers to be returned
   communities <- rep(list(rep(list(vector("list", matrixSize)), matrixSize)), replicates)
   persistences <- rep(list(rep(list(vector("list", matrixSize)), matrixSize)), replicates)
-  #interactions <- rep(list(rep(list(vector("list", matrixSize)), matrixSize)), replicates)
+  interactions <- rep(list(rep(list(vector("list", matrixSize)), matrixSize)), replicates)
   means <- rep(list(rep(list(0), matrixSize)), matrixSize)
   stdDevs <- rep(list(rep(list(vector("integer", replicates)), matrixSize)), matrixSize)
 
@@ -70,7 +70,7 @@ CvNs <- function(S, C, step, intTime = 100) {
         out <- n.integrate(time, init.x, model = mougi_model)
         communities[[CvN]][[rowC]][[colN]] <- out
         persistences[[CvN]][[rowC]][[colN]] <- mean(out[nrow(out),2:n+1] > 10^-15)
-        #interactions[[CvN]][[rowC]][[colN]] <- list(L, xxx, n, r, s, g, a, init.x)
+        interactions[[CvN]][[rowC]][[colN]] <- list(r, s, g, a, init.x)
         
         S_step <- S_step + S/(C/step)
       }
@@ -125,7 +125,7 @@ CvNs <- function(S, C, step, intTime = 100) {
   }
   print("here now")
   #returning containers
-  matricies <- list("communities" = communities, "persistences" = persistences, "mean" = means, "stdDev" = stdDevs)
+  matricies <- list("communities" = communities, "persistences" = persistences, "mean" = means, "stdDev" = stdDevs, "interactions" = interactions)
   return(matricies)
 
 }
