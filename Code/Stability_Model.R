@@ -141,7 +141,7 @@ plotGraph <- function(dataFrame, graphType, xax="Species", yax="Connectance") {
 }
 
 #returns subset of community integrated through time using original final densities
-subsetPath <- function(community, numSpecies, C, replace_sp, stepTime = 100) {
+subsetPath <- function(community, interactions, numSpecies, C, replace_sp, stepTime = 100) {
   
   livingAndDead <- community[nrow(community),2:length(community)] > 10^-15 #getting the status of each species
   w <- list()
@@ -210,22 +210,19 @@ subsetPath <- function(community, numSpecies, C, replace_sp, stepTime = 100) {
       }
       xo <- tmp
       
+      species <- c()
+      for(i in names(xo)){
+        species <- c(species, as.integer(unlist(strsplit(i, " "))[[2]])-1)
+      }
+      
       tmpBAL["Before"] <- list(xo)
       
       #print("7")
-      
-      L <- round(numSpecies^2*C)
-      N <- 1
-      
-      xxx <- Cascade.model(numSpecies, L, N)
-      n <- numSpecies
-      r <- runif(n, -1,1)
-      s <- runif(n, 1,1)
-      g <- runif(n)
-      a <- xxx * matrix(runif(n*n, 0,1),nrow=n)
-      diag(a) <- rep(0,n)
-      
-      init.x <- unlist(xo, use.names=FALSE)
+      r <- interactions[[1]][species]
+      s <- interactions[[2]][species]
+      g <- interactions[[3]][species]
+      a <- interactions[[4]][species, species]
+      init.x <- interactions[[5]][species]
       
       mougi_model <- function(t,x,parms){
         dx <- x * (r - s*x + g * (a %*% x) - (t(a) %*% x))
@@ -291,8 +288,9 @@ subsetPath <- function(community, numSpecies, C, replace_sp, stepTime = 100) {
       ############################################################################### Since this is a list it removes the names when you setdiff; needs to re-name each element as "Species Element"
       
       #Retrieving the appropriate persistences
-      for(i in unlist(y, use.names=FALSE))
+      for(i in unlist(y, use.names=FALSE)) {
         y[paste("Species", i)] <- community[nrow(community), i]
+      }
       
       #print("6")
       y <- c(y, xo)
@@ -306,24 +304,21 @@ subsetPath <- function(community, numSpecies, C, replace_sp, stepTime = 100) {
       }
       y <- tmp
       
+      species <- c()
+      for(i in names(y)){
+        species <- c(species, as.integer(unlist(strsplit(i, " "))[[2]])-1)
+      }
+      
       tmpBAL["Before"] <- list(y)
       
       ySize <- length(y)
       
       #print("7")
-      
-      L <- round(ySize^2*C)
-      N <- 1
-      
-      xxx <- Cascade.model(ySize, L, N)
-      n <- ySize
-      r <- runif(n, -1,1)
-      s <- runif(n, 1,1)
-      g <- runif(n)
-      a <- xxx * matrix(runif(n*n, 0,1),nrow=n)
-      diag(a) <- rep(0,n)
-      
-      init.x <- unlist(y, use.names=FALSE)
+      r <- interactions[[1]][species]
+      s <- interactions[[2]][species]
+      g <- interactions[[3]][species]
+      a <- interactions[[4]][species, species]
+      init.x <- interactions[[5]][species]
       
       mougi_model <- function(t,x,parms){
         dx <- x * (r - s*x + g * (a %*% x) - (t(a) %*% x))
@@ -385,7 +380,8 @@ subsetPath <- function(community, numSpecies, C, replace_sp, stepTime = 100) {
 nStarGraph <- function(container, Nstar, tolerance = 0.5, nI = 5, replace_sp = TRUE, graphStep = 1, replicates = 10, stepTime = 100) {
   #creating matrix of NStar for all CvNs
   meanData <- container$mean
-  community <- container$communities
+  communities <- container$communities
+  interactions <- container$interactions
   nStarMatrix <- data.frame(matrix(nrow=nrow(meanData), ncol=ncol(meanData)))
   for(i in 1:ncol(nStarMatrix)){
     nStarMatrix[i] <- meanData[,i]*as.numeric(colnames(meanData)[i])
@@ -425,7 +421,10 @@ nStarGraph <- function(container, Nstar, tolerance = 0.5, nI = 5, replace_sp = T
   L <- round(nI^2*connectance)
   if(((nI^2 - nI)/2 - L) < -0.5)
     return("L value below 0")
-  community <- container$communities[[sample(length(community), 1)]][[indicies[[1]]]][[indicies[[2]]]]
+  rpNum <- sample(length(communities), 1)
+  community <- communities[[rpNum]][[indicies[[1]]]][[indicies[[2]]]]
+  interaction <- interactions[[rpNum]][[indicies[[1]]]][[indicies[[2]]]]
+  
   if(is.null(community))
     return("There are no communities that satisfy Nstar. Increase the search interval or pick a new value.")
   
@@ -437,7 +436,7 @@ nStarGraph <- function(container, Nstar, tolerance = 0.5, nI = 5, replace_sp = T
   subset <- list()
   frames <- list()
   for(i in 1:replicates) {
-    subset[i] <- list(subsetPath(community, nI, connectance, replace_sp, stepTime))
+    subset[i] <- list(subsetPath(community, interaction, nI, connectance, replace_sp, stepTime))
     z <- c()
     for(j in 1:length(subset[[i]])){
       z <- c(z, lengths(subset[[i]][[j]]["Living"], use.names=FALSE))

@@ -1,11 +1,11 @@
 #####################
 sample <- c(1, 2, 4, 5, 7, 8)
 
-r <- y[[1]][sample]
-s <- y[[2]][sample]
-g <- y[[3]][sample]
-a <- y[[4]][sample, sample]
-init.x <- y[[5]][sample]
+r <- d[[1]][sample]
+s <- d[[2]][sample]
+g <- d[[3]][sample]
+a <- d[[4]][sample, sample]
+init.x <- d[[5]][sample]
 
 ######################
 
@@ -27,4 +27,4 @@ parms <- c(0) ### dummy variable (can have any numerical value)
 
 out <- n.integrate(time, init.x, model = mougi_model)
 
-#list(L, xxx, n, r, s, g, a, init.x)
+#list(r, s, g, a, init.x)

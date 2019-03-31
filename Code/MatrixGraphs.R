@@ -2,6 +2,7 @@ meanMatrix <- function(container, nI = 5, replace_sp = TRUE, graphStep = 1, repl
   #creating matrix of NStar for all CvNs
   meanData <- container$mean
   mainlands <- container$communities
+  interactions <- container$interactions
   nStarMatrix <- data.frame(matrix(nrow=nrow(meanData), ncol=ncol(meanData)))
   for(i in 1:ncol(nStarMatrix)){
     nStarMatrix[i] <- meanData[,i]*as.numeric(colnames(meanData)[i])
@@ -31,7 +32,8 @@ meanMatrix <- function(container, nI = 5, replace_sp = TRUE, graphStep = 1, repl
       
       rpNum <- sample(length(mainlands), 1)
       #print(rpNum)
-      community <- container$communities[[rpNum]][[i]][[j]]
+      community <- mainlands[[rpNum]][[i]][[j]]
+      interaction <- interactions[[rpNum]][[i]][[j]]
       if(is.null(community)) {
         meanMatrix[[i]][[j]] <- NULL
         next
@@ -42,7 +44,7 @@ meanMatrix <- function(container, nI = 5, replace_sp = TRUE, graphStep = 1, repl
       subset <- list()
       frames <- list()
       for(k in 1:replicates) {
-        subset[k] <- list(subsetPath(community, nI, connectance, replace_sp, stepTime))
+        subset[k] <- list(subsetPath(community, interaction, nI, connectance, replace_sp, stepTime))
         z <- c()
         for(l in 1:length(subset[[k]])){
           z <- c(z, lengths(subset[[k]][[l]]["Living"], use.names=FALSE))
@@ -77,7 +79,7 @@ meanMatrix <- function(container, nI = 5, replace_sp = TRUE, graphStep = 1, repl
 
 immStep <- c(5, 10)
 timeStep <- c(10, 50, 100, 200)
-matrixGraph <- function(container, imms, times){
+massMatrix <- function(container, imms, times){
   plotMeans <- list()
   for(i in 1:length(imms)){
     plotMeans[[i]] <- list()
@@ -87,9 +89,26 @@ matrixGraph <- function(container, imms, times){
   }
   return(plotMeans)
   
-  for(i in 1:length(w)){
-    for(j in 1:length(w[[i]])) {
-      w[[i]][[j]] <- w[[i]][[j]]["Mean"]
+  for(i in 1:length(plotMeans)){
+    for(j in 1:length(plotMeans[[i]])) {
+      plotMeans[[i]][[j]] <- plotMeans[[i]][[j]]["Mean"]
     }
   }
+}
+
+matrixGraph <- function(massMat) {
+  mat <- massMat['Step']
+  mat['Mean'] <- massMat['Mean']
+  mat <- melt(mat, id.var="Step")
+  colnames(mat) <- c("Step", "Replicates", "value")
+
+  stepPlot <- ggplot(data=mat, aes(x=Step, y=value, col=Replicates)) +
+    geom_line() +
+    geom_point() +
+    ggtitle("Archipelago Migration Simulation") +
+    xlab("Step Number") +
+    ylab("Nisle") +
+    expand_limits(y=c(0,max(massMat[nrow(massMat), 2:ncol(massMat)])+5))
+  
+  print(stepPlot)
 }
