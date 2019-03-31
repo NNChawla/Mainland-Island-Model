@@ -4,14 +4,13 @@ library(tidyverse)
 library(reshape)
 library(plyr)
 
-CvNs <- function(S, C, step, intTime = 100) {
+CvNs <- function(S, C, step, intTime = 100, replicates = 10, modelType = "Cascade") {
 
   ## make some random, cascade, and niche food webs
   ## S is species richness
   ## C is connectance
   N <- 1     ## set the number of replicate webs to make
   matrixSize <- round(C/step)
-  replicates <- 10
   
   #initializing containers to be returned
   communities <- rep(list(rep(list(vector("list", matrixSize)), matrixSize)), replicates)
@@ -32,14 +31,18 @@ CvNs <- function(S, C, step, intTime = 100) {
         
         L <- round(S_step^2*C_step)  ## calculate number of links from S and C
         
-        # skipping community generation because formula is less than 0 which throws error
-        if (((S_step^2 - S_step)/2 - L) < -0.5) {
-          S_step <- S_step + S/(C/step)
-          next
+        if(identical(modelType, "Cascade")) {
+          # skipping community generation because formula is less than 0 which throws error
+          if (((S_step^2 - S_step)/2 - L) < -0.5) {
+            S_step <- S_step + S/(C/step)
+            next
+          }
+          #generating model based on parameters
+          xxx <- Cascade.model(S_step, L, N)
         }
-        
-        #generating model based on parameters
-        xxx <- Cascade.model(S_step, L, N)
+        else if(identical(modelType, "Niche")) {
+          xxx <- Niche.model(S_step, L, N)
+        }
         
         # Number of Species
         n <- S_step
@@ -81,7 +84,6 @@ CvNs <- function(S, C, step, intTime = 100) {
     }
   
   }
-  print("Hello")
   #calculating mean and sd of persistences across all N matricies of C x S
   for(CvN in 1:replicates) {
       
@@ -102,7 +104,6 @@ CvNs <- function(S, C, step, intTime = 100) {
       stdDevs[[rowC]][[colN]] <- sd(stdDevs[[rowC]][[colN]])
     }
   }
-  print("I am here")
   #assigning labels to means and sd data.frames for easier reading
   speciesLabels <- c(seq((S/(C/step)), S, (S/(C/step))))
   connectanceLabels <- c(seq(step, C, step))
@@ -123,7 +124,6 @@ CvNs <- function(S, C, step, intTime = 100) {
     means <- means[-c(remove), ]
     stdDevs <- stdDevs[-c(remove), ]
   }
-  print("here now")
   #returning containers
   matricies <- list("communities" = communities, "persistences" = persistences, "mean" = means, "stdDev" = stdDevs, "interactions" = interactions)
   return(matricies)
@@ -131,7 +131,7 @@ CvNs <- function(S, C, step, intTime = 100) {
 }
 
 #graphs mean or sd as heatmap
-plotGraph <- function(dataFrame, graphType, xax="Species", yax="Connectance") {
+heatMap <- function(dataFrame, graphType, xax="Species", yax="Connectance") {
   ggplot(melt(as.matrix(dataFrame), id.vars = c("X1", "X2", "value"))) +
   scale_fill_gradient(low = "steelblue", high = "white") +
   ylab(yax) +
@@ -377,7 +377,8 @@ subsetPath <- function(community, interactions, numSpecies, C, replace_sp, stepT
   return(BAL)
 }
 
-nStarGraph <- function(container, Nstar, tolerance = 0.5, nI = 5, replace_sp = TRUE, graphStep = 1, replicates = 10, stepTime = 100) {
+nStarGraph <- function(container, Nstar, tolerance = 0.5, nI = 5, replace_sp = TRUE, 
+                       graphStep = 1, replicates = 10, stepTime = 100, modelType = "Cascade") {
   #creating matrix of NStar for all CvNs
   meanData <- container$mean
   communities <- container$communities
@@ -389,7 +390,7 @@ nStarGraph <- function(container, Nstar, tolerance = 0.5, nI = 5, replace_sp = T
   
   colnames(nStarMatrix) <- colnames(meanData)
   rownames(nStarMatrix) <- rownames(meanData)
-  print(plotGraph(nStarMatrix, "N*", xax="Species", yax="Connectance"))
+  print(heatMap(nStarMatrix, "N*", xax="Species", yax="Connectance"))
   print("N* Matrix:")
   print(nStarMatrix)
   
@@ -415,12 +416,14 @@ nStarGraph <- function(container, Nstar, tolerance = 0.5, nI = 5, replace_sp = T
   #Select random community from indicies of acceptable communities
   indicies <- indicies[sample(nrow(indicies), 1), ]
   connectance <- as.numeric(rownames(meanData)[[indicies[[1]]]])
-  startingSpecies <- as.numeric(colnames(meanData)[[indicies[[2]]]])
+  #startingSpecies <- as.numeric(colnames(meanData)[[indicies[[2]]]])
 
   #selecting a random community from the communities that satisfy Nstar
   L <- round(nI^2*connectance)
-  if(((nI^2 - nI)/2 - L) < -0.5)
-    return("L value below 0")
+  if(identical(modelType, "Cascade")){
+    if(((nI^2 - nI)/2 - L) < -0.5)
+      return("L value below 0")
+  }
   rpNum <- sample(length(communities), 1)
   community <- communities[[rpNum]][[indicies[[1]]]][[indicies[[2]]]]
   interaction <- interactions[[rpNum]][[indicies[[1]]]][[indicies[[2]]]]

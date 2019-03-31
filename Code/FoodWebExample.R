@@ -44,3 +44,10 @@ hist(random.structure[,prop], main="Random", xlab=prop, breaks=prop.bins)
 hist(cascade.structure[,prop], main="Cascade", xlab=prop, breaks=prop.bins)
 hist(niche.structure[,prop], main="Niche", xlab=prop, breaks=prop.bins)
 ## Big differences between models!
+
+## make some random, cascade, and niche food webs
+S = 20     ## set species richness
+C = 0.05   ## set connectance
+N = 1      ## set the number of replicate webs to make
+L = S^2*C  ## calculate number of links from S and C
+xxx <- Niche.model(S, L, N)

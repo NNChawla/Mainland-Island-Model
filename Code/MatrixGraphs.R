@@ -1,4 +1,4 @@
-meanMatrix <- function(container, nI = 5, replace_sp = TRUE, graphStep = 1, replicates = 10, stepTime = 100) {
+meanMatrix <- function(container, nI = 5, replace_sp = TRUE, graphStep = 1, replicates = 10, stepTime = 100, modelType = "Cascade") {
   #creating matrix of NStar for all CvNs
   meanData <- container$mean
   mainlands <- container$communities
@@ -25,11 +25,12 @@ meanMatrix <- function(container, nI = 5, replace_sp = TRUE, graphStep = 1, repl
       startingSpecies <- as.numeric(colnames(meanData)[[j]])
       
       L <- round(nI^2*connectance)
-      if(((nI^2 - nI)/2 - L) < -0.5) {
-        meanMatrix[[i]][[j]] <- NULL
-        next
+      if(identical(modelType, "Cascade")) {
+        if(((nI^2 - nI)/2 - L) < -0.5) {
+          meanMatrix[[i]][[j]] <- NULL
+          next
+        }
       }
-      
       rpNum <- sample(length(mainlands), 1)
       #print(rpNum)
       community <- mainlands[[rpNum]][[i]][[j]]
@@ -96,9 +97,28 @@ massMatrix <- function(container, imms, times){
   }
 }
 
-matrixGraph <- function(massMat) {
-  mat <- massMat['Step']
-  mat['Mean'] <- massMat['Mean']
+matrixGraph <- function(massMat, paths = c("Mean"), graphMean = FALSE, include = TRUE) {
+  if(sum(is.element(paths, names(massMat)), na.rm=TRUE) == length(paths)) {
+    mat <- massMat['Step']
+    for(i in paths){
+      mat[i] <- massMat[i]
+    }
+  }
+  else if(identical(paths, "All")) {
+    mat <- massMat
+  }
+  else{
+    return(print("Enter valid values for the desired path"))
+  }
+  
+  if(graphMean && include) {
+    mat["Graph Mean"] <- rowMeans(mat[2:length(mat)])
+  }
+  else if(graphMean) {
+    tmpMat <- mat
+    mat <- tmpMat['Step']
+    mat["Graph Mean"] <- rowMeans(tmpMat[2:length(tmpMat)])
+  }
   mat <- melt(mat, id.var="Step")
   colnames(mat) <- c("Step", "Replicates", "value")
 
