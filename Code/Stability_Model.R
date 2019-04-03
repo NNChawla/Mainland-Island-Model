@@ -125,7 +125,7 @@ CvNs <- function(S, C, step, intTime = 100, replicates = 10, modelType = "Cascad
     stdDevs <- stdDevs[-c(remove), ]
   }
   #returning containers
-  matricies <- list("communities" = communities, "persistences" = persistences, "mean" = means, "stdDev" = stdDevs, "interactions" = interactions)
+  matricies <- list("communities" = communities, "persistences" = persistences, "mean" = means, "stdDev" = stdDevs, "interactions" = interactions, "model" = modelType)
   return(matricies)
 
 }
@@ -378,8 +378,9 @@ subsetPath <- function(community, interactions, numSpecies, C, replace_sp, stepT
 }
 
 nStarGraph <- function(container, Nstar, tolerance = 0.5, nI = 5, replace_sp = TRUE, 
-                       graphStep = 1, replicates = 10, stepTime = 100, modelType = "Cascade") {
+                       graphStep = 1, replicates = 10, stepTime = 100) {
   #creating matrix of NStar for all CvNs
+  modelType <- container$model
   meanData <- container$mean
   communities <- container$communities
   interactions <- container$interactions
@@ -458,7 +459,7 @@ nStarGraph <- function(container, Nstar, tolerance = 0.5, nI = 5, replace_sp = T
   stepPlot <- ggplot(data=frames, aes(x=Step, y=value, col=Replicates)) +
     geom_line() +
     geom_point() +
-    ggtitle("Archipelago Migration Simulation") +
+    ggtitle(paste("Archipelago Migration Simulation:", modelType, "Model")) +
     xlab("Step Number") +
     ylab("Nisle") +
     expand_limits(y=c(0,wSize))

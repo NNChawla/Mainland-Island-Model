@@ -1,5 +1,6 @@
-meanMatrix <- function(container, nI = 5, replace_sp = TRUE, graphStep = 1, replicates = 10, stepTime = 100, modelType = "Cascade") {
+meanMatrix <- function(container, nI = 5, replace_sp = TRUE, graphStep = 1, replicates = 10, stepTime = 100) {
   #creating matrix of NStar for all CvNs
+  modelType <- container$model
   meanData <- container$mean
   mainlands <- container$communities
   interactions <- container$interactions
@@ -41,6 +42,7 @@ meanMatrix <- function(container, nI = 5, replace_sp = TRUE, graphStep = 1, repl
       }
       print(c(connectance, startingSpecies))
       
+      mainLiving <- sum(community[nrow(community), 2:length(community)] > 10^-15)
       stepSize <- graphStep
       subset <- list()
       frames <- list()
@@ -50,6 +52,7 @@ meanMatrix <- function(container, nI = 5, replace_sp = TRUE, graphStep = 1, repl
         for(l in 1:length(subset[[k]])){
           z <- c(z, lengths(subset[[k]][[l]]["Living"], use.names=FALSE))
         }
+        z <- z/mainLiving
         z <- data.frame(z)
         colnames(z) <- k
         z["Step"] <- c(1:nrow(z))
@@ -57,8 +60,6 @@ meanMatrix <- function(container, nI = 5, replace_sp = TRUE, graphStep = 1, repl
           z[[1]] <- NA
         frames[[k]] <- z[seq(1, nrow(z), stepSize), ]
       }
-      #if(j==ncol(nStarMatrix))
-        #return(frames)
       frames <- Reduce(function(x, y) merge(x=x, y=y, by="Step", all.y = TRUE), frames)
       frames <- rowMeans(frames[2:length(frames)], na.rm = TRUE)
       mat <- data.frame(matrix(nrow=length(frames), ncol=2))
@@ -75,29 +76,44 @@ meanMatrix <- function(container, nI = 5, replace_sp = TRUE, graphStep = 1, repl
   }
   frames <- Reduce(function(x, y) merge(x=x, y=y, by="Step", all.y = TRUE), frames)
   frames["Mean"] <- rowMeans(frames[2:length(frames)], na.rm = TRUE)
-  return(frames)
+  return(list(frames, c(modelType, nI, stepTime)))
 }
 
-immStep <- c(5, 10)
+immStep <- c(2, 5, 10)
 timeStep <- c(10, 50, 100, 200)
-massMatrix <- function(container, imms, times){
+massMatrix <- function(containers, imms, times){
   plotMeans <- list()
-  for(i in 1:length(imms)){
+  for(i in 1:length(containers)) {
     plotMeans[[i]] <- list()
-    for(j in 1:length(times)){
-      plotMeans[[i]][[j]] <- meanMatrix(container, nI=imms[[i]], stepTime=times[[j]])
+    for(j in 1:length(imms)){
+      plotMeans[[i]][[j]] <- list()
+      for(k in 1:length(times)){
+        plotMeans[[i]][[j]][[k]] <- meanMatrix(containers[[i]], nI=imms[[j]], stepTime=times[[k]])
+      }
     }
   }
   return(plotMeans)
-  
-  for(i in 1:length(plotMeans)){
-    for(j in 1:length(plotMeans[[i]])) {
-      plotMeans[[i]][[j]] <- plotMeans[[i]][[j]]["Mean"]
-    }
-  }
 }
 
-matrixGraph <- function(massMat, paths = c("Mean"), graphMean = FALSE, include = TRUE) {
+timeMatrix <- function(massMat) {
+  timeMat <- data.frame(matrix(nrow=3, ncol=ncol(massMat)-1))
+  colnames(timeMat) <- colnames(massMat)[2:length(massMat)]
+  rownames(timeMat) <- rownames(c("nFinal", "nHalfI", "nHalfM"))
+  for(i in 2:length(massMat)){
+    nFinal <- massMat[[i]][[length(massMat[[i]])]]
+    nHalfI <- which.min(abs(massMat[[i]]-nFinal/2))
+    nHalfM <- which.min(abs(massMat[[i]]-0.5))
+    timeMat[[i-1]] <- c(nFinal, nHalfI, nHalfM)
+  }
+  #timeMat[[length(timeMat)]] <- rowMeans(timeMat[1:(length(massMat)-1)])
+  return(timeMat)
+}
+
+massGraph <- function(massMat, paths = c("Mean"), graphMean = FALSE, include = TRUE) {
+  modelType <- massMat[[2]][[1]]
+  nI <- massMat[[2]][[2]]
+  sT <- massMat[[2]][[3]]
+  massMat <- massMat[[1]]
   if(sum(is.element(paths, names(massMat)), na.rm=TRUE) == length(paths)) {
     mat <- massMat['Step']
     for(i in paths){
@@ -121,14 +137,30 @@ matrixGraph <- function(massMat, paths = c("Mean"), graphMean = FALSE, include =
   }
   mat <- melt(mat, id.var="Step")
   colnames(mat) <- c("Step", "Replicates", "value")
+  
+  yLimit <- c(0, 1.0)
 
   stepPlot <- ggplot(data=mat, aes(x=Step, y=value, col=Replicates)) +
     geom_line() +
     geom_point() +
-    ggtitle("Archipelago Migration Simulation") +
+    ggtitle(paste("Archipelago Migration Simulation:", modelType, "Model - nI", nI, "- timeStep", sT)) +
     xlab("Step Number") +
     ylab("Nisle") +
-    expand_limits(y=c(0,max(massMat[nrow(massMat), 2:ncol(massMat)])+5))
+    expand_limits(y=yLimit)
   
-  print(stepPlot)
+  return(stepPlot)
+}
+
+multiGraph <- function(multiMat){
+  graphs <- list()
+  count <- 1
+  for(i in 1:length(multiMat)){
+    for(j in 1:length(multiMat[[i]])){
+      for(k in 1:length(multiMat[[i]][[j]])){
+        graphs[[count]] <- massGraph(multiMat[[i]][[j]][[k]][[1]], multiMat[[i]][[j]][[k]][[2]], paths=c("All"))
+        count <- count + 1
+      }
+    }
+  }
+  return(graphs)
 }
