@@ -141,7 +141,7 @@ heatMap <- function(dataFrame, graphType, xax="Species", yax="Connectance") {
 }
 
 #returns subset of community integrated through time using original final densities
-subsetPath <- function(community, interactions, numSpecies, C, replace_sp, stepTime = 100) {
+subsetPath <- function(community, interactions, numSpecies, C, replace_sp, stepTime = 100, stepCount = 100) {
   
   livingAndDead <- community[nrow(community),2:length(community)] > 10^-15 #getting the status of each species
   w <- list()
@@ -171,7 +171,7 @@ subsetPath <- function(community, interactions, numSpecies, C, replace_sp, stepT
     numSteps <- ceiling(nStar/numSpecies)
   }
   else
-    numSteps <- 100 ################## Eventually, we will do away with this and dynamically decide when to stop at runtime
+    numSteps <- stepCount ################## Eventually, we will do away with this and dynamically decide when to stop at runtime
   # We will do this by identifying when the island has reached equilibrium and cut it off there
   
   #print("3")

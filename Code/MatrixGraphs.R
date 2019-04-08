@@ -1,4 +1,4 @@
-meanMatrix <- function(container, nI = 5, replace_sp = TRUE, graphStep = 1, replicates = 10, stepTime = 100) {
+meanMatrix <- function(container, nI = 5, replace_sp = TRUE, graphStep = 1, replicates = 10, stepTime = 100, stepCount = 100) {
   #creating matrix of NStar for all CvNs
   modelType <- container$model
   meanData <- container$mean
@@ -8,27 +8,29 @@ meanMatrix <- function(container, nI = 5, replace_sp = TRUE, graphStep = 1, repl
   for(i in 1:ncol(nStarMatrix)){
     nStarMatrix[i] <- meanData[,i]*as.numeric(colnames(meanData)[i])
   }
-  
   colnames(nStarMatrix) <- colnames(meanData)
   rownames(nStarMatrix) <- rownames(meanData)
-  meanMatrix <- list()
+  meanMat <- list()
+  tansin <- list()
   
   #Data.Frame [r, c] List [[r]][[c]]
   print("N* Matrix:")
   print(nStarMatrix)
   
   for(i in 1:nrow(nStarMatrix)){
-    meanMatrix[[i]] <- list()
-    #if(i!=4)
+    meanMat[[i]] <- list()
+    tansin[[i]] <- list()
+    #if(!(i>=6))
       #next
     for(j in 1:ncol(nStarMatrix)) {
       connectance <- as.numeric(rownames(meanData)[[i]])
       startingSpecies <- as.numeric(colnames(meanData)[[j]])
+      tansin[[i]][[j]] <- list()
       
       L <- round(nI^2*connectance)
       if(identical(modelType, "Cascade")) {
         if(((nI^2 - nI)/2 - L) < -0.5) {
-          meanMatrix[[i]][[j]] <- NULL
+          meanMat[[i]][[j]] <- NULL
           next
         }
       }
@@ -37,7 +39,7 @@ meanMatrix <- function(container, nI = 5, replace_sp = TRUE, graphStep = 1, repl
       community <- mainlands[[rpNum]][[i]][[j]]
       interaction <- interactions[[rpNum]][[i]][[j]]
       if(is.null(community)) {
-        meanMatrix[[i]][[j]] <- NULL
+        meanMat[[i]][[j]] <- NULL
         next
       }
       print(c(connectance, startingSpecies))
@@ -47,7 +49,9 @@ meanMatrix <- function(container, nI = 5, replace_sp = TRUE, graphStep = 1, repl
       subset <- list()
       frames <- list()
       for(k in 1:replicates) {
-        subset[k] <- list(subsetPath(community, interaction, nI, connectance, replace_sp, stepTime))
+        tansin[[i]][[j]][[k]] <- subsetPath(community, interaction, nI, connectance, replace_sp, stepTime, stepCount)
+        subset[k] <- list(tansin[[i]][[j]][[k]])
+        #subset[k] <- list(subsetPath(community, interaction, nI, connectance, replace_sp, stepTime))
         z <- c()
         for(l in 1:length(subset[[k]])){
           z <- c(z, lengths(subset[[k]][[l]]["Living"], use.names=FALSE))
@@ -66,22 +70,58 @@ meanMatrix <- function(container, nI = 5, replace_sp = TRUE, graphStep = 1, repl
       colnames(mat) <- c("Step", paste(i, j))
       mat["Step"] <- c(1:length(frames))
       mat[paste(i, j)] <- frames
-      meanMatrix[[i]][[j]] <- mat
+      meanMat[[i]][[j]] <- mat
     }
   }
   
   frames <- list()
-  for(i in 1:length(meanMatrix)){
-    frames[[i]] <- Reduce(function(x, y) merge(x=x, y=y, by="Step", all.y = TRUE), meanMatrix[[i]])
+  for(i in 1:length(meanMat)){
+    frames[[i]] <- Reduce(function(x, y) merge(x=x, y=y, by="Step", all.y = TRUE), meanMat[[i]])
   }
   frames <- Reduce(function(x, y) merge(x=x, y=y, by="Step", all.y = TRUE), frames)
   frames["Mean"] <- rowMeans(frames[2:length(frames)], na.rm = TRUE)
-  return(list(frames, c(modelType, nI, stepTime)))
+  #return(list(frames, tansin))
+  for(i in 1:nrow(nStarMatrix)){
+     for(j in 1:ncol(nStarMatrix)){
+       #print(c(i, j))
+       if(length(tansin[[i]][[j]])==0) {
+         tansin[[i]][[j]] <- NA
+         next
+       }
+       for(k in 1:replicates){
+         z <- c()
+         for(l in 1:stepCount){
+           live <- length(tansin[[i]][[j]][[k]][[l]][["Living"]])
+           dead <- length(tansin[[i]][[j]][[k]][[l]][["Before"]])
+           z <- c(z, live/dead)
+         }
+         tansin[[i]][[j]][[k]] <- z
+       }
+       meanZ <- rep(0, stepCount)
+       for(k in 1:replicates){
+         meanZ <- meanZ + tansin[[i]][[j]][[k]]
+       }
+       tansin[[i]][[j]] <- meanZ/replicates
+     }
+    if(sum(is.na(tansin[[i]]))==length(tansin[[i]]))
+      tansin[[i]] <- NA
+  }
+  
+  count <- 1
+  while(sum(is.na(tansin))!=0){
+    if(sum(is.na(tansin[[count]]))>0){
+      tansin[[count]] <- NULL
+    }
+    else
+      count <- count + 1
+  }
+  
+  return(list(frames, c(modelType, nI, stepTime), timeMatrix(frames), tansin))
 }
 
 immStep <- c(2, 5, 10)
 timeStep <- c(10, 50, 100, 200)
-massMatrix <- function(containers, imms, times){
+multiMatrix <- function(containers, imms, times){
   plotMeans <- list()
   for(i in 1:length(containers)) {
     plotMeans[[i]] <- list()
@@ -89,6 +129,7 @@ massMatrix <- function(containers, imms, times){
       plotMeans[[i]][[j]] <- list()
       for(k in 1:length(times)){
         plotMeans[[i]][[j]][[k]] <- meanMatrix(containers[[i]], nI=imms[[j]], stepTime=times[[k]])
+        print(c(i, j, k))
       }
     }
   }
@@ -105,7 +146,6 @@ timeMatrix <- function(massMat) {
     nHalfM <- which.min(abs(massMat[[i]]-0.5))
     timeMat[[i-1]] <- c(nFinal, nHalfI, nHalfM)
   }
-  #timeMat[[length(timeMat)]] <- rowMeans(timeMat[1:(length(massMat)-1)])
   return(timeMat)
 }
 
@@ -151,16 +191,69 @@ massGraph <- function(massMat, paths = c("Mean"), graphMean = FALSE, include = T
   return(stepPlot)
 }
 
-multiGraph <- function(multiMat){
-  graphs <- list()
+multiGraph <- function(multiMat, containers){
+  massGraphs <- list()
+  tGraphs <- list()
   count <- 1
   for(i in 1:length(multiMat)){
     for(j in 1:length(multiMat[[i]])){
       for(k in 1:length(multiMat[[i]][[j]])){
-        graphs[[count]] <- massGraph(multiMat[[i]][[j]][[k]][[1]], multiMat[[i]][[j]][[k]][[2]], paths=c("All"))
+        meanData <- containers[[i]]$mean
+        massGraphs[[count]] <- massGraph(multiMat[[i]][[j]][[k]], paths=c("All"))
+        tGraphs[[count]] <- t50graph(multiMat[[i]][[j]][[k]], rownames(meanData), colnames(meanData))
+        
+        
         count <- count + 1
       }
     }
   }
   return(graphs)
+}
+
+pathGraph <- function(massMat, paths=c("All")){
+  pathMat <- massMat[[4]]
+  C <- rep(seq_along(pathMat), lengths(pathMat))
+  N <- sequence(lengths(pathMat))
+  step <- lengths(unlist(pathMat, rec=FALSE))
+  graph <- data.frame(
+    CvN = paste(rep(C, step), rep(N, step)),
+    step = sequence(step),
+    nIM = unlist(pathMat)
+  )
+  if(!identical(paths, "All"))
+    graph <- filter(graph, CvN %in% paths)
+  pathPlot <- ggplot(data=graph, aes(x=step, y=nIM, col=CvN)) +
+  geom_line() +
+  geom_point()
+  
+  return(pathPlot)
+}
+#pathGraph(tansin, paste(1, 1:9))
+
+t50graph <- function(massMat, rNames, cNames){
+  timeMat <- massMat[[3]]
+  dims <- c(length(massMat[[4]]), length(massMat[[4]][[1]]))
+  sC <- length(massMat[[4]][[1]][[1]])
+  
+  x <- dims[[1]]
+  y <- dims[[2]]
+  vectors <- data.frame(matrix(nrow=x, ncol=y))
+  vectors[, length(vectors)+1] <- as.double(rNames)[1:x]
+  for(i in 1:y){
+    vectors[, i] <- unlist(select(timeMat, ends_with(toString(i)))[2,])
+  }
+  rownames(vectors) <- rNames[1:x]
+  colnames(vectors) <- c(cNames[1:y], "C")
+  vectors <- melt(vectors, id.var="C")
+  colnames(vectors) <- c("C", "N", "t50")
+  
+  yLimit <- c(0, sC)
+  stepPlot <- ggplot(data=vectors, aes(x=C, y=t50, col=N)) +
+    geom_line() +
+    geom_point() +
+    ggtitle("Archipelago t50s") +
+    xlab("C") +
+    ylab("t50")
+    #expand_limits(y=yLimit)
+  return(stepPlot)
 }
