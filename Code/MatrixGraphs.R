@@ -82,34 +82,33 @@ meanMatrix <- function(container, nI = 5, replace_sp = TRUE, graphStep = 1, repl
   frames["Mean"] <- rowMeans(frames[2:length(frames)], na.rm = TRUE)
   #return(list(frames, tansin))
   for(i in 1:nrow(nStarMatrix)){
-     for(j in 1:ncol(nStarMatrix)){
-       #print(c(i, j))
-       if(length(tansin[[i]][[j]])==0) {
-         tansin[[i]][[j]] <- NA
-         next
-       }
-       for(k in 1:replicates){
-         z <- c()
-         for(l in 1:stepCount){
-           live <- length(tansin[[i]][[j]][[k]][[l]][["Living"]])
-           dead <- length(tansin[[i]][[j]][[k]][[l]][["Before"]])
-           z <- c(z, live/dead)
-         }
-         tansin[[i]][[j]][[k]] <- z
-       }
-       meanZ <- rep(0, stepCount)
-       for(k in 1:replicates){
-         meanZ <- meanZ + tansin[[i]][[j]][[k]]
-       }
-       tansin[[i]][[j]] <- meanZ/replicates
-     }
+    for(j in 1:ncol(nStarMatrix)){
+      if(length(tansin[[i]][[j]])==0 || is.na(tansin[[i]][[j]])) {
+        tansin[[i]][[j]] <- NA
+        next
+      }
+      for(k in 1:replicates){
+        z <- c()
+        for(l in 1:stepCount){
+          live <- length(tansin[[i]][[j]][[k]][[l]][["Living"]])
+          dead <- length(tansin[[i]][[j]][[k]][[l]][["Before"]])
+          z <- c(z, live/dead)
+        }
+        tansin[[i]][[j]][[k]] <- z
+      }
+      meanZ <- rep(0, stepCount)
+      for(k in 1:replicates){
+        meanZ <- meanZ + tansin[[i]][[j]][[k]]
+      }
+      tansin[[i]][[j]] <- meanZ/replicates
+    }
     if(sum(is.na(tansin[[i]]))==length(tansin[[i]]))
       tansin[[i]] <- NA
   }
   
   count <- 1
   while(sum(is.na(tansin))!=0){
-    if(sum(is.na(tansin[[count]]))>0){
+    if(length(tansin[[count]])==1){
       tansin[[count]] <- NULL
     }
     else
@@ -126,7 +125,7 @@ multiMatrix <- function(containers, imms, times){
     for(j in 1:length(imms)){
       plotMeans[[i]][[j]] <- list()
       for(k in 1:length(times)){
-        plotMeans[[i]][[j]][[k]] <- meanMatrix(containers[[i]], nI=imms[[j]], stepTime=times[[k]])
+        plotMeans[[i]][[j]][[k]] <- tryCatch(meanMatrix(containers[[i]], nI=imms[[j]], stepTime=times[[k]]), error=function(e) NA)
         print(c(i, j, k))
       }
     }
@@ -248,8 +247,8 @@ pathGraph <- function(massMat, paths=c("All")){
 
 t50graph <- function(massMat, rNames, cNames){
   timeMat <- massMat[[3]]
-  dims <- c(length(massMat[[4]]), length(massMat[[4]][[1]]))
-  sC <- length(massMat[[4]][[1]][[1]])
+  dims <- c(length(massMat[[4]]), max(lengths(massMat[[4]])))
+  sC <- max(lengths(massMat[[4]][[1]]))
   
   x <- dims[[1]]
   y <- dims[[2]]
@@ -262,7 +261,6 @@ t50graph <- function(massMat, rNames, cNames){
   colnames(vectors) <- c(cNames[1:y], "C")
   vectors <- melt(vectors, id.var="C")
   colnames(vectors) <- c("C", "N", "t50")
-  
   yLimit <- c(0, sC)
   stepPlot <- ggplot(data=vectors, aes(x=C, y=t50, col=N)) +
     geom_line() +

@@ -25,7 +25,6 @@ for(i in 1:length(S)){
       containers[[i]] <- 0
     }
   }
-  print(c(S[[i]], step))
 }
 
 datasets <- multiMatrix(containers, nI, sT)
