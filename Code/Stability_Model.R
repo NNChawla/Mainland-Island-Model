@@ -110,7 +110,6 @@ CvNs <- function(S, C, step, intTime = 100, replicates = 10, modelType = "Cascad
   stdDevs <- as.data.frame(matrix(unlist(stdDevs), nrow=length(unlist(stdDevs[1]))))
   rownames(stdDevs) <- connectanceLabels
   colnames(stdDevs) <- speciesLabels
-  
   means <- as.data.frame(matrix(unlist(means), nrow=length(unlist(means[1]))))
   rownames(means) <- connectanceLabels
   colnames(means) <- speciesLabels[1:length(means)]

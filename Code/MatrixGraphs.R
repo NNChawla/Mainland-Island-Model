@@ -119,8 +119,6 @@ meanMatrix <- function(container, nI = 5, replace_sp = TRUE, graphStep = 1, repl
   return(list(frames, c(modelType, nI, stepTime), timeMatrix(frames), tansin))
 }
 
-immStep <- c(2, 5, 10)
-timeStep <- c(10, 50, 100, 200)
 multiMatrix <- function(containers, imms, times){
   plotMeans <- list()
   for(i in 1:length(containers)) {
@@ -194,20 +192,38 @@ massGraph <- function(massMat, paths = c("Mean"), graphMean = FALSE, include = T
 multiGraph <- function(multiMat, containers){
   massGraphs <- list()
   tGraphs <- list()
+  pGraphs <- list()
   count <- 1
   for(i in 1:length(multiMat)){
     for(j in 1:length(multiMat[[i]])){
       for(k in 1:length(multiMat[[i]][[j]])){
+        massMat <- multiMat[[i]][[j]][[k]]
         meanData <- containers[[i]]$mean
-        massGraphs[[count]] <- massGraph(multiMat[[i]][[j]][[k]], paths=c("All"))
-        tGraphs[[count]] <- t50graph(multiMat[[i]][[j]][[k]], rownames(meanData), colnames(meanData))
-        
+        fName <- paste(massMat[[2]][[1]], "-", massMat[[2]][[2]], "-", massMat[[2]][[3]], ".png", sep="")
+        massGraphs[[count]] <- massGraph(massMat, paths=c("All"))
+        tGraphs[[count]] <- t50graph(massMat, rownames(meanData), colnames(meanData))
+        pGraphs[[count]] <- pathGraph(massMat)
+        ggsave(filename=paste("mass-", fName, sep=""), plot=massGraphs[[count]], dpi=320, width=20, height=10)
+        ggsave(filename=paste("t50-", fName, sep=""), plot=tGraphs[[count]], dpi=320, width=20, height=10)
+        ggsave(filename=paste("path-", fName, sep=""), plot=pGraphs[[count]], dpi=320, width=20, height=10)
         
         count <- count + 1
       }
     }
   }
-  return(graphs)
+  return(list(massGraphs, tGraphs, pGraphs))
+}
+
+matGraphs <- function(massMat, container) {
+  meanData <- container$mean
+  fName <- paste(massMat[[2]][[1]], "-", massMat[[2]][[2]], "-", massMat[[2]][[3]], ".png", sep="")
+  mGraph <- massGraph(massMat, paths=c("All"))
+  tGraph <- t50graph(massMat, rownames(meanData), colnames(meanData))
+  pGraph <- pathGraph(massMat)
+  ggsave(filename=paste("mass-", fName, sep=""), plot=mGraph, dpi=320, width=20, height=10)
+  ggsave(filename=paste("t50-", fName, sep=""), plot=tGraph, dpi=320, width=20, height=10)
+  ggsave(filename=paste("path-", fName, sep=""), plot=pGraph, dpi=320, width=20, height=10)
+  return(list(mGraph, tGraph, pGraph))
 }
 
 pathGraph <- function(massMat, paths=c("All")){
