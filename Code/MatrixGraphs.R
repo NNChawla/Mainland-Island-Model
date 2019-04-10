@@ -196,9 +196,13 @@ multiGraph <- function(multiMat, containers){
   for(i in 1:length(multiMat)){
     for(j in 1:length(multiMat[[i]])){
       for(k in 1:length(multiMat[[i]][[j]])){
+        if(is.na(multiMat[[i]][[j]][[k]])){
+          next
+        }
         massMat <- multiMat[[i]][[j]][[k]]
         meanData <- containers[[i]]$mean
-        fName <- paste(massMat[[2]][[1]], "-", massMat[[2]][[2]], "-", massMat[[2]][[3]], ".png", sep="")
+        S <- containers[[i]]$parms[[1]]
+        fName <- paste(S, "-", massMat[[2]][[1]], "-", massMat[[2]][[2]], "-", massMat[[2]][[3]], ".png", sep="")
         massGraphs[[count]] <- massGraph(massMat, paths=c("All"))
         tGraphs[[count]] <- t50graph(massMat, rownames(meanData), colnames(meanData))
         pGraphs[[count]] <- pathGraph(massMat)

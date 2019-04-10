@@ -124,7 +124,7 @@ CvNs <- function(S, C, step, intTime = 100, replicates = 10, modelType = "Cascad
     stdDevs <- stdDevs[-c(remove), ]
   }
   #returning containers
-  matricies <- list("communities" = communities, "persistences" = persistences, "mean" = means, "stdDev" = stdDevs, "interactions" = interactions, "model" = modelType)
+  matricies <- list("communities" = communities, "persistences" = persistences, "mean" = means, "stdDev" = stdDevs, "interactions" = interactions, "model" = modelType, "parms" = c(S, C, step))
   return(matricies)
 
 }
