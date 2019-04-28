@@ -1,5 +1,6 @@
-meanMatrix <- function(container, nI = 5, replace_sp = TRUE, graphStep = 1, replicates = 10, stepTime = 100, stepCount = 100) {
+metaMatrix <- function(container, nI = 5, replace_sp = TRUE, graphStep = 1, replicates = 10, stepTime = 100, stepCount = 100) {
   #creating matrix of NStar for all CvNs
+  mainS <- container$parms[[1]]
   modelType <- container$model
   meanData <- container$mean
   mainlands <- container$communities
@@ -51,7 +52,6 @@ meanMatrix <- function(container, nI = 5, replace_sp = TRUE, graphStep = 1, repl
       for(k in 1:replicates) {
         tansin[[i]][[j]][[k]] <- subsetPath(community, interaction, nI, connectance, replace_sp, stepTime, stepCount)
         subset[k] <- list(tansin[[i]][[j]][[k]])
-        #subset[k] <- list(subsetPath(community, interaction, nI, connectance, replace_sp, stepTime))
         z <- c()
         for(l in 1:length(subset[[k]])){
           z <- c(z, lengths(subset[[k]][[l]]["Living"], use.names=FALSE))
@@ -65,12 +65,14 @@ meanMatrix <- function(container, nI = 5, replace_sp = TRUE, graphStep = 1, repl
         frames[[k]] <- z[seq(1, nrow(z), stepSize), ]
       }
       frames <- Reduce(function(x, y) merge(x=x, y=y, by="Step", all.y = TRUE), frames)
-      frames <- rowMeans(frames[2:length(frames)], na.rm = TRUE)
-      mat <- data.frame(matrix(nrow=length(frames), ncol=2))
-      colnames(mat) <- c("Step", paste(i, j))
-      mat["Step"] <- c(1:length(frames))
-      mat[paste(i, j)] <- frames
-      meanMat[[i]][[j]] <- mat
+      #frames <- rowMeans(frames[2:length(frames)], na.rm = TRUE)
+      #mat <- data.frame(matrix(nrow=length(frames), ncol=2))
+      #colnames(mat) <- c("Step", paste(i, j))
+      #mat["Step"] <- c(1:length(frames))
+      #mat[paste(i, j)] <- frames
+      #meanMat[[i]][[j]] <- mat
+      colnames(frames) <- c("Step", paste(rownames(meanData)[[i]], colnames(meanData)[[j]], 1:replicates))
+      meanMat[[i]][[j]] <- frames
     }
   }
   
@@ -79,8 +81,8 @@ meanMatrix <- function(container, nI = 5, replace_sp = TRUE, graphStep = 1, repl
     frames[[i]] <- Reduce(function(x, y) merge(x=x, y=y, by="Step", all.y = TRUE), meanMat[[i]])
   }
   frames <- Reduce(function(x, y) merge(x=x, y=y, by="Step", all.y = TRUE), frames)
-  frames["Mean"] <- rowMeans(frames[2:length(frames)], na.rm = TRUE)
-  #return(list(frames, tansin))
+  #frames["Mean"] <- rowMeans(frames[2:length(frames)], na.rm = TRUE)
+  
   for(i in 1:nrow(nStarMatrix)){
     for(j in 1:ncol(nStarMatrix)){
       if(length(tansin[[i]][[j]])==0 || is.na(tansin[[i]][[j]])) {
@@ -96,11 +98,11 @@ meanMatrix <- function(container, nI = 5, replace_sp = TRUE, graphStep = 1, repl
         }
         tansin[[i]][[j]][[k]] <- z
       }
-      meanZ <- rep(0, stepCount)
-      for(k in 1:replicates){
-        meanZ <- meanZ + tansin[[i]][[j]][[k]]
-      }
-      tansin[[i]][[j]] <- meanZ/replicates
+      #meanZ <- rep(0, stepCount)
+      #for(k in 1:replicates){
+      #  meanZ <- meanZ + tansin[[i]][[j]][[k]]
+      #}
+      #tansin[[i]][[j]] <- meanZ/replicates
     }
     if(sum(is.na(tansin[[i]]))==length(tansin[[i]]))
       tansin[[i]] <- NA
@@ -115,7 +117,7 @@ meanMatrix <- function(container, nI = 5, replace_sp = TRUE, graphStep = 1, repl
       count <- count + 1
   }
   
-  return(list(frames, c(modelType, nI, stepTime), timeMatrix(frames), tansin))
+  return(list(frames, c(modelType, nI, stepTime, mainS), timeMatrix(frames), tansin))
 }
 
 multiMatrix <- function(containers, imms, times){
@@ -125,7 +127,7 @@ multiMatrix <- function(containers, imms, times){
     for(j in 1:length(imms)){
       plotMeans[[i]][[j]] <- list()
       for(k in 1:length(times)){
-        plotMeans[[i]][[j]][[k]] <- tryCatch(meanMatrix(containers[[i]], nI=imms[[j]], stepTime=times[[k]]), error=function(e) NA)
+        plotMeans[[i]][[j]][[k]] <- tryCatch(metaMatrix(containers[[i]], nI=imms[[j]], stepTime=times[[k]]), error=function(e) NA)
         print(c(i, j, k))
       }
     }
@@ -239,6 +241,7 @@ pathGraph <- function(massMat, paths=c("All")){
     step = sequence(step),
     nIM = unlist(pathMat)
   )
+  #return(graph)
   if(!identical(paths, "All"))
     graph <- filter(graph, CvN %in% paths)
   pathPlot <- ggplot(data=graph, aes(x=step, y=nIM, col=CvN)) +
