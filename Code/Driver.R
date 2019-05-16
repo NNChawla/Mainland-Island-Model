@@ -1,5 +1,3 @@
-require("tidyverse")
-require("reshape")
 source("FoodWebFunctions.R")
 source("Stability_Model.R")
 source("MatrixGraphs.R")
@@ -28,3 +26,5 @@ for(i in 1:length(S)){
 }
 
 datasets <- multiMatrix(containers, nI, sT)
+
+dtable <- dataTable(datasets, S, nI, sT)

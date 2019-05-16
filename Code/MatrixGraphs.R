@@ -12,7 +12,7 @@ metaMatrix <- function(container, nI = 5, replace_sp = TRUE, graphStep = 1, repl
   colnames(nStarMatrix) <- colnames(meanData)
   rownames(nStarMatrix) <- rownames(meanData)
   meanMat <- list()
-  tansin <- list()
+  pathLDRatios <- list()
   
   #Data.Frame [r, c] List [[r]][[c]]
   print("N* Matrix:")
@@ -20,13 +20,13 @@ metaMatrix <- function(container, nI = 5, replace_sp = TRUE, graphStep = 1, repl
   
   for(i in 1:nrow(nStarMatrix)){
     meanMat[[i]] <- list()
-    tansin[[i]] <- list()
+    pathLDRatios[[i]] <- list()
     #if(!(i>=6))
       #next
     for(j in 1:ncol(nStarMatrix)) {
       connectance <- as.numeric(rownames(meanData)[[i]])
       startingSpecies <- as.numeric(colnames(meanData)[[j]])
-      tansin[[i]][[j]] <- list()
+      pathLDRatios[[i]][[j]] <- list()
       
       L <- round(nI^2*connectance)
       if(identical(modelType, "Cascade")) {
@@ -50,8 +50,8 @@ metaMatrix <- function(container, nI = 5, replace_sp = TRUE, graphStep = 1, repl
       subset <- list()
       frames <- list()
       for(k in 1:replicates) {
-        tansin[[i]][[j]][[k]] <- subsetPath(community, interaction, nI, connectance, replace_sp, stepTime, stepCount)
-        subset[k] <- list(tansin[[i]][[j]][[k]])
+        pathLDRatios[[i]][[j]][[k]] <- subsetPath(community, interaction, nI, connectance, replace_sp, stepTime, stepCount)
+        subset[k] <- list(pathLDRatios[[i]][[j]][[k]])
         z <- c()
         for(l in 1:length(subset[[k]])){
           z <- c(z, lengths(subset[[k]][[l]]["Living"], use.names=FALSE))
@@ -85,39 +85,39 @@ metaMatrix <- function(container, nI = 5, replace_sp = TRUE, graphStep = 1, repl
   
   for(i in 1:nrow(nStarMatrix)){
     for(j in 1:ncol(nStarMatrix)){
-      if(length(tansin[[i]][[j]])==0 || is.na(tansin[[i]][[j]])) {
-        tansin[[i]][[j]] <- NA
+      if(length(pathLDRatios[[i]][[j]])==0 || is.na(pathLDRatios[[i]][[j]])) {
+        pathLDRatios[[i]][[j]] <- NA
         next
       }
       for(k in 1:replicates){
         z <- c()
         for(l in 1:stepCount){
-          live <- length(tansin[[i]][[j]][[k]][[l]][["Living"]])
-          dead <- length(tansin[[i]][[j]][[k]][[l]][["Before"]])
+          live <- length(pathLDRatios[[i]][[j]][[k]][[l]][["Living"]])
+          dead <- length(pathLDRatios[[i]][[j]][[k]][[l]][["Before"]])
           z <- c(z, live/dead)
         }
-        tansin[[i]][[j]][[k]] <- z
+        pathLDRatios[[i]][[j]][[k]] <- z
       }
       #meanZ <- rep(0, stepCount)
       #for(k in 1:replicates){
-      #  meanZ <- meanZ + tansin[[i]][[j]][[k]]
+      #  meanZ <- meanZ + pathLDRatios[[i]][[j]][[k]]
       #}
-      #tansin[[i]][[j]] <- meanZ/replicates
+      #pathLDRatios[[i]][[j]] <- meanZ/replicates
     }
-    if(sum(is.na(tansin[[i]]))==length(tansin[[i]]))
-      tansin[[i]] <- NA
+    if(sum(is.na(pathLDRatios[[i]]))==length(pathLDRatios[[i]]))
+      pathLDRatios[[i]] <- NA
   }
   
   count <- 1
-  while(sum(is.na(tansin))!=0){
-    if(length(tansin[[count]])==1){
-      tansin[[count]] <- NULL
+  while(sum(is.na(pathLDRatios))!=0){
+    if(length(pathLDRatios[[count]])==1){
+      pathLDRatios[[count]] <- NULL
     }
     else
       count <- count + 1
   }
   
-  return(list(frames, c(modelType, nI, stepTime, mainS), timeMatrix(frames), tansin))
+  return(list(frames, c(modelType, nI, stepTime, mainS), timeMatrix(frames), pathLDRatios))
 }
 
 multiMatrix <- function(containers, imms, times){
@@ -250,7 +250,7 @@ pathGraph <- function(massMat, paths=c("All")){
   
   return(pathPlot)
 }
-#pathGraph(tansin, paste(1, 1:9))
+#pathGraph(pathLDRatios, paste(1, 1:9))
 
 t50graph <- function(massMat, rNames, cNames){
   timeMat <- massMat[[3]]
@@ -277,4 +277,36 @@ t50graph <- function(massMat, rNames, cNames){
     ylab("t50")
     #expand_limits(y=yLimit)
   return(stepPlot)
+}
+
+dataTable <- function(ds, S, nI, sT) {
+  headers <- c("mainS","nI", "nST", "C", "N", "Rep", "t50I")
+  dtable <- as.tibble(matrix(0,0,length(headers)))
+  
+  MS = NIS = NSTS = CS = NS = RS = TS = 0
+  for(i in 1:length(S)) {
+    for(j in 1:length(nI)){
+      for(k in 1:length(sT)){
+        if(length(ds[[i]][[j]][[k]])==1) #if entry is NA
+          next
+        entry <- ds[[i]][[j]][[k]]
+        MS <- as.integer(entry[[2]][[4]])
+        NIS <- as.integer(entry[[2]][[2]])
+        NSTS <- as.integer(entry[[2]][[3]])
+        
+        for(x in 1:length(entry[[3]])){
+          cnr <- unlist(strsplit(names(entry[[3]])[[x]], " "))
+          CS <- as.double(cnr[[1]])
+          NS <- as.integer(cnr[[2]])
+          RS <- as.integer(cnr[[3]])
+          TS <- as.double(entry[[3]][[x]][[2]])
+          
+          dtable <- rbind(dtable, c(MS, NIS, NSTS, CS, NS, RS, TS))
+        }
+        
+      }
+    }
+  }
+  names(dtable) <- headers
+  return(dtable)
 }
