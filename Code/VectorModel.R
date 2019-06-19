@@ -6,36 +6,7 @@ library(plyr)
 library(doParallel)
 library(tictoc)
 
-fastForward <- function(n, xxx, intTime) {
-  
-  r <- runif(n, -1,1) #growth rate
-  s <- runif(n, 1,1) #desnity dependent inhibition
-  g <- runif(n)
-  a <- xxx * matrix(runif(n*n, 0,1),nrow=n)
-  diag(a) <- rep(0,n)
-  
-  init.x <- runif(n)
-  
-  mougi_model <- function(t,x,parms){
-    dx <- x * (r - s*x + g * (a %*% x) - crossprod(a, x))
-    list(dx)
-  }
-  
-  n.integrate <- function(time=time, init.x= init.x, model=model){
-    t.out <- seq(time$start,time$end,length=time$steps)
-    as.data.frame(lsoda(init.x, t.out, model, parms = parms))
-  }
-  
-  # Integration window
-  time <- list(start = 0, end = intTime, steps = intTime)
-  # dummy variable for lvm() function defined above
-  parms <- c(0) ### dummy variable (can have any numerical value)
-  
-  out <- n.integrate(time, init.x, model = mougi_model)
-  return(list(out, mean(out[nrow(out),2:n+1] > 10^-15), list(r, s, g, a, init.x)))
-}
-
-VectorCvNs <- function(S, C, step, intTime = 100, replicates = 10, modelType = "Cascade") {
+VectorCvNs <- function(S, C, step, p.m, p.e, replicates = 10) {
   tic("Total:")
   ## make some random, cascade, and niche food webs
   ## S is species richness
@@ -47,17 +18,6 @@ VectorCvNs <- function(S, C, step, intTime = 100, replicates = 10, modelType = "
   cSteps <- seq(step, C, step)
   x <- S/(C/step)
   sSteps <- seq(x, sum(rep(x, matrixSize)), x)
-  print(list(cSteps, sSteps))
-  
-  cond <- function(c, s){
-    if(identical(modelType, "Cascade")) {
-      # skipping Connectance and Species pairing because number of links is less than 0 which throws error
-      return(ifelse((((s^2 - s)/2 - round(s^2*c)) < -0.5), FALSE, TRUE))
-    }
-    else if(identical(modelType, "Niche")) {
-      return(TRUE)
-    }
-  }
   
   #creating a list of lists of lists of dimensions N x C x S
   #C x S throws errors if it's not square
@@ -68,18 +28,8 @@ VectorCvNs <- function(S, C, step, intTime = 100, replicates = 10, modelType = "
   
   out <- foreach(i = reps) %:%
     foreach(C_step = cSteps) %:%
-    foreach(S_step = sSteps[cond(C_step, sSteps)], .export = c("Cascade.model", "Niche.model", "fastForward"), .packages = c("deSolve", "lattice")) %dopar% {
-      
-      L <- round(S_step^2*C_step)  ## calculate number of links from S and C
-      
-      if(identical(modelType, "Cascade")) {
-        xxx <- Cascade.model(S_step, L, N)
-      }
-      else if(identical(modelType, "Niche")) {
-        xxx <- Niche.model(S_step, L, N)
-      }
-      
-      fastForward(S_step, xxx, intTime)
+    foreach(S_step = sSteps, .export = c("fullSim", "QianMatrix"), .packages = c("deSolve", "lattice")) %dopar% {
+      fullSim(S_step, C_step, p.m, p.e, 1, 0.5, 10, 1, 100, 20, 0.001, 5000, 0.01)
     }
   
   stopCluster(parCluster)
@@ -138,8 +88,8 @@ VectorCvNs <- function(S, C, step, intTime = 100, replicates = 10, modelType = "
   }
   #returning containers
   toc()
-  matricies <- list("communities" = communities, "persistences" = persistences, "mean" = means, "stdDev" = stdDevs, "interactions" = interactions, "model" = modelType, "parms" = c(S, C, step))
-  return(matricies)
+  matrices <- list("communities" = communities, "persistences" = persistences, "mean" = means, "stdDev" = stdDevs, "interactions" = interactions, "parms" = c(S, C, step, p.m, p.e, 1-(p.m+p.e)))
+  return(matrices)
   
 }
 
@@ -154,9 +104,9 @@ heatMap <- function(dataFrame, graphType, xax="Species", yax="Connectance") {
 }
 
 #returns subset of community integrated through time using original final densities
-subsetPath <- function(community, interactions, numSpecies, C, replace_sp, stepTime = 100, stepCount = 100) {
+VectorPath <- function(community, interactions, numSpecies, C, e, k) {
   
-  livingAndDead <- community[nrow(community),2:length(community)] > 10^-15 #getting the status of each species
+  livingAndDead <- community[nrow(community),2:length(community)] > e #getting the status of each species
   w <- list()
   counter = 1
   for(i in 1:length(livingAndDead)){
@@ -166,9 +116,7 @@ subsetPath <- function(community, interactions, numSpecies, C, replace_sp, stepT
     }
   }
   
-  #print("2")
-  
-  #Mandatory Check
+  #Exit if the sample size is greater than the number of persisting species in the community
   nStar <- length(w)
   if(numSpecies > nStar){
     print("nI is greater than N*")
@@ -178,222 +126,23 @@ subsetPath <- function(community, interactions, numSpecies, C, replace_sp, stepT
   xo <- NULL
   y <- NULL
   BAL <- list()
-  
-  wSize <- 10000000 #arbitrarily large value
-  if(!replace_sp) {
-    numSteps <- ceiling(nStar/numSpecies)
-  }
-  else
-    numSteps <- stepCount ################## Eventually, we will do away with this and dynamically decide when to stop at runtime
-  # We will do this by identifying when the island has reached equilibrium and cut it off there
-  
-  #print("3")
-  
-  for(step in 1:numSteps) {
     
-    if(!replace_sp & (numSpecies > wSize))
-      numSpecies <- wSize
-    
-    #print("4")
-    
-    if(step == 1) {
+  step <- 1
       
-      tmpBAL <- list()
-      
-      #Sample W
-      xo <- sample(w, numSpecies)
-      if(!replace_sp)
-        w <- setdiff(w, xo)
-      
-      #print("5")
-      ############################################################################### Since this is a list it removes the names when you setdiff; needs to re-name each element as "Species Element"
-      
-      #Retrieving the appropriate persistences
-      for(i in unlist(xo, use.names=FALSE)){
-        xo[paste("Species", i)] <- community[nrow(community), i]
-      }
-      
-      
-      tmp <- list()
-      for(i in 1:length(xo)){
-        if(is.null(tmp[[names(xo[i])]]))
-          tmp[[names(xo[i])]] <- xo[[i]]
-        else
-          tmp[[names(xo[i])]] <- tmp[[names(xo[i])]] + xo[[i]]
-      }
-      xo <- tmp
-      
-      species <- c()
-      for(i in names(xo)){
-        species <- c(species, as.integer(unlist(strsplit(i, " "))[[2]])-1)
-      }
-      
-      tmpBAL["Before"] <- list(xo)
-      
-      #print("7")
-      r <- interactions[[1]][species]
-      s <- interactions[[2]][species]
-      g <- interactions[[3]][species]
-      a <- interactions[[4]][species, species]
-      init.x <- interactions[[5]][species]
-      
-      mougi_model <- function(t,x,parms){
-        dx <- x * (r - s*x + g * (a %*% x) - crossprod(a, x))
-        list(dx)
-      }
-      
-      n.integrate <- function(time=time, init.x= init.x, model=model){
-        t.out <- seq(time$start,time$end,length=time$steps)
-        as.data.frame(lsoda(init.x, t.out, model, parms = parms))
-      }
-      
-      time <- list(start = 0, end = stepTime, steps = stepTime)
-      parms <- c(0)
-      tmp <- n.integrate(time, init.x, model = mougi_model)
-      
-      tmpBAL["Between"] <- list(tmp)
-      #print("8")
-      
-      tmp <- unlist(tmp[nrow(tmp), 2:length(tmp)], use.names=FALSE)
-      for(i in 1:length(tmp))
-      {
-        xo[i] <- tmp[i]
-      }
-      
-      tmpBAL["After"] <- list(xo)
-      
-      #print("9")
-      
-      count <- length(xo)
-      i <- 1
-      while(!(i>count)) {
-        if(xo[i] < 10^-15){
-          xo[i] <- NULL
-          count <- length(xo)
-        }
-        else{
-          i <- i + 1
-        }
-      }
-      
-      tmpBAL["Living"] <- list(xo)
-      
-      #print("10")
-      
-      if(!replace_sp)
-        wSize <- length(w)
-      
-      BAL[step] <- list(tmpBAL)
-      
-      #print("11")
-    }
-    
-    else 
-    {
-      tmpBAL <- list()
-      
-      #Sample W
-      y <- sample(w, numSpecies)
-      if(!replace_sp)
-        w <- setdiff(w, y)
-      
-      #print("5")
-      ############################################################################### Since this is a list it removes the names when you setdiff; needs to re-name each element as "Species Element"
-      
-      #Retrieving the appropriate persistences
-      for(i in unlist(y, use.names=FALSE)) {
-        y[paste("Species", i)] <- community[nrow(community), i]
-      }
-      
-      #print("6")
-      y <- c(y, xo)
-      
-      tmp <- list()
-      for(i in 1:length(y)){
-        if(is.null(tmp[[names(y[i])]]))
-          tmp[[names(y[i])]] <- y[[i]]
-        else
-          tmp[[names(y[i])]] <- tmp[[names(y[i])]] + y[[i]]
-      }
-      y <- tmp
-      
-      species <- c()
-      for(i in names(y)){
-        species <- c(species, as.integer(unlist(strsplit(i, " "))[[2]])-1)
-      }
-      
-      tmpBAL["Before"] <- list(y)
-      
-      ySize <- length(y)
-      
-      #print("7")
-      r <- interactions[[1]][species]
-      s <- interactions[[2]][species]
-      g <- interactions[[3]][species]
-      a <- interactions[[4]][species, species]
-      init.x <- interactions[[5]][species]
-      
-      mougi_model <- function(t,x,parms){
-        dx <- x * (r - s*x + g * (a %*% x) - crossprod(a, x))
-        list(dx)
-      }
-      
-      n.integrate <- function(time=time, init.x= init.x, model=model){
-        t.out <- seq(time$start,time$end,length=time$steps)
-        as.data.frame(lsoda(init.x, t.out, model, parms = parms))
-      }
-      
-      time <- list(start = 0, end = stepTime, steps = stepTime)
-      parms <- c(0)
-      
-      tmp <- n.integrate(time, init.x, model = mougi_model)
-      
-      tmpBAL["Between"] <- list(tmp)
-      #print("8")
-      
-      tmp <- unlist(tmp[nrow(tmp), 2:length(tmp)], use.names=FALSE)
-      for(i in 1:length(tmp))
-      {
-        y[i] <- tmp[i]
-      }
-      
-      tmpBAL["After"] <- list(y)
-      
-      #print("9")
-      
-      count <- length(y)
-      i <- 1
-      while(!(i>count)) {
-        if(y[i] < 10^-15){
-          y[i] <- NULL
-          count <- length(y)
-        }
-        else{
-          i <- i + 1
-        }
-      }
-      
-      tmpBAL["Living"] <- list(y)
-      
-      #print("10")
-      
-      xo <- y
-      
-      if(!replace_sp)
-        wSize <- length(w)
-      
-      BAL[step] <- list(tmpBAL)
-      #print("11")
-    }
+  path <- pathSim(w, numSpecies, community, interactions)
+  BAL[step] <- list(path[[1]])
+  while((length(path[[1]]$Living) < nStar) && (step < k)) {
+    path <- pathSim(w, numSpecies, community, interactions, path[[2]])
+    step <- step + 1
+    BAL[step] <- list(path[[1]])
   }
   
   return(BAL)
 }
 
-nStarGraph <- function(container, Nstar, tolerance = 0.5, nI = 5, replace_sp = TRUE, 
-                       graphStep = 1, replicates = 10, stepTime = 100) {
+nStarGraph <- function(container, Nstar, tolerance = 0.5, nI = 5,
+                       graphStep = 1, replicates = 10, e = 0.01, k = 1000) {
   #creating matrix of NStar for all CvNs
-  modelType <- container$model
   meanData <- container$mean
   communities <- container$communities
   interactions <- container$interactions
@@ -417,27 +166,11 @@ nStarGraph <- function(container, Nstar, tolerance = 0.5, nI = 5, replace_sp = T
   colnames(nStarMatrix) <- colnames(meanData)
   rownames(nStarMatrix) <- rownames(meanData)
   
-  #Deprecated check for invalid CvN Pairs
-  # for(i in 1:nrow(indicies)) {
-  #   R <- indicies[i,][[1]]
-  #   C <- indicies[i,][[2]]
-  #   S <- as.numeric(rownames(meanData)[R])
-  #   C <- as.numeric(colnames(meanData)[C])
-  #   if(round(S^2*C)==-1)
-  #     print(c(S,C))
-  # }
-  
   #Select random community from indicies of acceptable communities
   indicies <- indicies[sample(nrow(indicies), 1), ]
   connectance <- as.numeric(rownames(meanData)[[indicies[[1]]]])
-  #startingSpecies <- as.numeric(colnames(meanData)[[indicies[[2]]]])
-
+  
   #selecting a random community from the communities that satisfy Nstar
-  L <- round(nI^2*connectance)
-  if(identical(modelType, "Cascade")){
-    if(((nI^2 - nI)/2 - L) < -0.5)
-      return("L value below 0")
-  }
   rpNum <- sample(length(communities), 1)
   community <- communities[[rpNum]][[indicies[[1]]]][[indicies[[2]]]]
   interaction <- interactions[[rpNum]][[indicies[[1]]]][[indicies[[2]]]]
@@ -448,12 +181,12 @@ nStarGraph <- function(container, Nstar, tolerance = 0.5, nI = 5, replace_sp = T
   print(c(indicies[[1]], indicies[[2]]))
 
   #plotting a subset of the species in the Nstar community, integrated through time
-  wSize <- sum(community[nrow(community),2:length(community)] > 10^-15)
+  wSize <- sum(community[nrow(community),2:length(community)] > e)
   stepSize <- graphStep
   subset <- list()
   frames <- list()
   for(i in 1:replicates) {
-    subset[i] <- list(subsetPath(community, interaction, nI, connectance, replace_sp, stepTime))
+    subset[i] <- list(VectorPath(community, interaction, nI, connectance, e, k))
     z <- c()
     for(j in 1:length(subset[[i]])){
       z <- c(z, lengths(subset[[i]][[j]]["Living"], use.names=FALSE))
@@ -472,7 +205,7 @@ nStarGraph <- function(container, Nstar, tolerance = 0.5, nI = 5, replace_sp = T
   stepPlot <- ggplot(data=frames, aes(x=Step, y=value, col=Replicates)) +
     geom_line() +
     geom_point() +
-    ggtitle(paste("Archipelago Migration Simulation:", modelType, "Model")) +
+    ggtitle(paste("Archipelago Migration Simulation: Qian Model")) +
     xlab("Step Number") +
     ylab("Nisle") +
     expand_limits(y=c(0,wSize))
