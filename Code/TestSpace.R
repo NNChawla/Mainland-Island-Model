@@ -17,13 +17,9 @@ VectorMetaMatrix <- function(container, nI = 5, graphStep = 1, replicates = 10, 
   
   cs <- as.numeric(rownames(meanData))
   ss <- as.numeric(colnames(meanData))
-
-  numCores <- detectCores()
-  parCluster <- makeCluster(numCores, type="PSOCK")
-  registerDoParallel(parCluster)
   
-  out <- foreach(i = cs) %:%
-    foreach(j = ss, .export = c("VectorPath", "pathSim", "QianMatrix"), .packages = c("deSolve", "lattice")) %dopar% {
+  for(i in cs) {
+    for(j in ss) {
       rpNum <- sample(length(mainlands), 1)
       c <- which(cs == i)
       s <- which(ss == j)
@@ -64,8 +60,7 @@ VectorMetaMatrix <- function(container, nI = 5, graphStep = 1, replicates = 10, 
         list(frames, pldRs)
       }
     }
-  
-  stopCluster(parCluster)
+  }
   
   meanMat <- list()
   pathLDRatios <- list()
@@ -91,7 +86,7 @@ VectorMetaMatrix <- function(container, nI = 5, graphStep = 1, replicates = 10, 
         pathLDRatios[[i]][[j]] <- NA
         next
       }
-      for(k in 1:replicates){
+      for(k in 1:10){
         z <- c()
         for(l in 1:length(pathLDRatios[[i]][[j]][[k]])){
           live <- length(pathLDRatios[[i]][[j]][[k]][[l]][["Living"]])
@@ -104,66 +99,6 @@ VectorMetaMatrix <- function(container, nI = 5, graphStep = 1, replicates = 10, 
   }
   
   toc()
-  return(list(frames, c(nI, mainS), timeMatrix(frames), pathLDRatios))
-}
-
-multiMatrix <- function(containers, imms, times){
-  plotMeans <- list()
-  for(i in 1:length(containers)) {
-    plotMeans[[i]] <- list()
-    for(j in 1:length(imms)){
-      plotMeans[[i]][[j]] <- list()
-      for(k in 1:length(times)){
-        plotMeans[[i]][[j]][[k]] <- tryCatch(VectorMetaMatrix(containers[[i]], nI=imms[[j]], stepTime=times[[k]]), error=function(e) NA)
-        print(c(i, j, k))
-      }
-    }
-  }
-  return(plotMeans)
-}
-
-timeMatrix <- function(massMat) {
-  timeMat <- data.frame(matrix(nrow=3, ncol=ncol(massMat)-1))
-  colnames(timeMat) <- colnames(massMat)[2:length(massMat)]
-  rownames(timeMat) <- rownames(c("nFinal", "nHalfI", "nHalfM"))
-  for(i in 2:length(massMat)){
-    path <- massMat[[i]][!is.na(massMat[[i]])] #removing NAs from path so functions will work
-    nFinal <- path[[length(path)]] #Final Persistence Reached
-    nHalfI <- which.min(abs(path-nFinal/2)) #Step at which community reached half of its final persistence
-    nHalfM <- which.min(abs(path-0.5)) #Step at which community reched half of the mainland's final persistence
-    timeMat[[i-1]] <- c(nFinal, nHalfI, nHalfM)
-  }
-  return(timeMat)
-}
-
-dataTable <- function(ds, S, nI, sT) {
-  headers <- c("mainS","nI", "nST", "C", "N", "Rep", "t50I")
-  dtable <- as.tibble(matrix(0,0,length(headers)))
-  
-  MS = NIS = NSTS = CS = NS = RS = TS = 0
-  for(i in 1:length(S)) {
-    for(j in 1:length(nI)){
-      for(k in 1:length(sT)){
-        if(length(ds[[i]][[j]][[k]])==1) #if entry is NA
-          next
-        entry <- ds[[i]][[j]][[k]]
-        MS <- as.integer(entry[[2]][[4]])
-        NIS <- as.integer(entry[[2]][[2]])
-        NSTS <- as.integer(entry[[2]][[3]])
-        
-        for(x in 1:length(entry[[3]])){
-          cnr <- unlist(strsplit(names(entry[[3]])[[x]], " "))
-          CS <- as.double(cnr[[1]])
-          NS <- as.integer(cnr[[2]])
-          RS <- as.integer(cnr[[3]])
-          TS <- as.double(entry[[3]][[x]][[2]])
-          
-          dtable <- rbind(dtable, c(MS, NIS, NSTS, CS, NS, RS, TS))
-        }
-        
-      }
-    }
-  }
-  names(dtable) <- headers
-  return(dtable)
+  return(list(frames, pathLDRatios, c(nI, mainS)))
+  #return(list(frames, c(nI, mainS), timeMatrix(frames), pathLDRatios))
 }
