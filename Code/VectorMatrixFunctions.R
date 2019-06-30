@@ -1,4 +1,4 @@
-VectorMetaMatrix <- function(container, nI = 5, graphStep = 1, replicates = 10, e = 0.01, kl = 1000) {
+VectorMetaMatrix <- function(container, nI = 5, graphStep = 1, replicates = 10, e = 0.01, kl = 5000) {
   tic()
   
   mainS <- container$parms[[1]]
@@ -35,7 +35,7 @@ VectorMetaMatrix <- function(container, nI = 5, graphStep = 1, replicates = 10, 
       }
       else {
         
-        mainLiving <- sum(community[nrow(community), 2:length(community)] > e)
+        mainLiving <- sum(community[nrow(community), 2:ncol(community)] > e)
         stepSize <- graphStep
         subset <- list()
         frames <- list()
@@ -125,45 +125,30 @@ multiMatrix <- function(containers, imms, times){
 timeMatrix <- function(massMat) {
   timeMat <- data.frame(matrix(nrow=3, ncol=ncol(massMat)-1))
   colnames(timeMat) <- colnames(massMat)[2:length(massMat)]
-  rownames(timeMat) <- rownames(c("nFinal", "nHalfI", "nHalfM"))
+  rownames(timeMat) <- rownames(c("nFinalP", "nFinalS", "nHalfMS"))
   for(i in 2:length(massMat)){
     path <- massMat[[i]][!is.na(massMat[[i]])] #removing NAs from path so functions will work
-    nFinal <- path[[length(path)]] #Final Persistence Reached
-    nHalfI <- which.min(abs(path-nFinal/2)) #Step at which community reached half of its final persistence
+    nFinalP <- path[[length(path)]] #Final Persistence Reached
+    nFinalS <- length(path)
     nHalfM <- which.min(abs(path-0.5)) #Step at which community reched half of the mainland's final persistence
-    timeMat[[i-1]] <- c(nFinal, nHalfI, nHalfM)
+    timeMat[[i-1]] <- c(nFinalP, nFinalS, nHalfM)
   }
   return(timeMat)
 }
 
-dataTable <- function(ds, S, nI, sT) {
-  headers <- c("mainS","nI", "nST", "C", "N", "Rep", "t50I")
+dataTable <- function(timeMat) { # for a single metaMatrix run, takes the timeMat and reformats it
+  headers <- c("C", "N", "R", "p100", "t100", "t50")
   dtable <- as.tibble(matrix(0,0,length(headers)))
-  
-  MS = NIS = NSTS = CS = NS = RS = TS = 0
-  for(i in 1:length(S)) {
-    for(j in 1:length(nI)){
-      for(k in 1:length(sT)){
-        if(length(ds[[i]][[j]][[k]])==1) #if entry is NA
-          next
-        entry <- ds[[i]][[j]][[k]]
-        MS <- as.integer(entry[[2]][[4]])
-        NIS <- as.integer(entry[[2]][[2]])
-        NSTS <- as.integer(entry[[2]][[3]])
-        
-        for(x in 1:length(entry[[3]])){
-          cnr <- unlist(strsplit(names(entry[[3]])[[x]], " "))
-          CS <- as.double(cnr[[1]])
-          NS <- as.integer(cnr[[2]])
-          RS <- as.integer(cnr[[3]])
-          TS <- as.double(entry[[3]][[x]][[2]])
-          
-          dtable <- rbind(dtable, c(MS, NIS, NSTS, CS, NS, RS, TS))
-        }
-        
-      }
-    }
+  for(x in 1:length(timeMat)){
+    cnr <- unlist(strsplit(names(timeMat)[[x]], " "))
+    CS <- as.double(cnr[[1]])
+    NS <- as.integer(cnr[[2]])
+    RS <- as.integer(cnr[[3]])
+    NFP <- as.double(timeMat[[x]][[1]])
+    NFS <- as.double(timeMat[[x]][[2]])
+    THalf <- as.double(timeMat[[x]][[3]])
+    
+    dtable <- rbind(dtable, c(CS, NS, RS, NFP, NFS, THalf))
   }
   names(dtable) <- headers
-  return(dtable)
 }

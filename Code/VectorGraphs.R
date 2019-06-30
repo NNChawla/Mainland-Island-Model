@@ -1,3 +1,21 @@
+#original return values
+#list(frames, c(modelType, nI, stepTime, mainS), timeMatrix(frames), pathLDRatios)
+#new return values
+#list(frames, c(nI, mainS), timeMatrix(frames), pathLDRatios)
+
+library(zoo)
+
+debugGraph <- function(mat) {
+  mat <- mat[!is.na(mat$'1'),]
+  if(nrow(mat) > 1001){
+    mat <- rbind(mat[1,], mat[mat$time!=0,])
+  }
+  mat$time <- seq(1, nrow(mat))
+  df <- melt(mat, id.vars = "time", variable.name = "series")
+  plt <- ggplot(df, aes(time,value)) + geom_line(aes(colour = series), show.legend = FALSE)
+  return(plt)
+}
+
 vPathGraph <- function(path, nStar) {
   plt <- list()
 
@@ -20,11 +38,12 @@ vPathGraph <- function(path, nStar) {
   return(stepPlot)
 }
 
-massGraph <- function(massMat, paths = c("Mean"), graphMean = FALSE, include = TRUE) {
-  modelType <- massMat[[2]][[1]]
-  nI <- massMat[[2]][[2]]
-  sT <- massMat[[2]][[3]]
+massGraph <- function(massMat, paths = c("All"), graphMean = FALSE, include = TRUE) {
+  nI <- massMat[[2]][[1]]
   massMat <- massMat[[1]]
+  
+  massMat <- na.locf(massMat)
+  
   if(sum(is.element(paths, names(massMat)), na.rm=TRUE) == length(paths)) {
     mat <- massMat['Step']
     for(i in paths){
@@ -54,7 +73,7 @@ massGraph <- function(massMat, paths = c("Mean"), graphMean = FALSE, include = T
   stepPlot <- ggplot(data=mat, aes(x=Step, y=value, col=Replicates)) +
     geom_line() +
     geom_point() +
-    ggtitle(paste("Archipelago Migration Simulation:", modelType, "Model - nI", nI, "- timeStep", sT)) +
+    ggtitle(paste("Archipelago Migration Simulation: Qian Model - nI", nI)) +
     xlab("Step Number") +
     ylab("Nisle") +
     expand_limits(y=yLimit)

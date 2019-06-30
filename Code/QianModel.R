@@ -43,7 +43,7 @@ QianMatrix <- function(n, C, p.m, p.e, s, alpha, K) {
   interaction_type <- rmultinom(nrow(interaction_index), 1, c(p.m, p.e, p.c))
   
   #parameter for half normal distributions (see below)
-  #alpha <- 0.25
+  #alpha <- 0.5
   
   ## Loop through all interactions and fill appropriately
   
@@ -114,55 +114,51 @@ QianMatrix <- function(n, C, p.m, p.e, s, alpha, K) {
     }
     
   }
+  
   return(list(A.m, A.ep, A.en, A.c, A.e, interaction_index, interaction_type))
 }
 
 fullSim <- function(n, C, p.m, p.e, s, alpha, xo, r, K, h, delta, tl, e) {
-  
-  #Starting Population densities for each species
-  #xo <- 10
   
   s <- -s
   
   interaction_matrices <- QianMatrix(n, C, p.m, p.e, s, alpha, K)
   A.m <- interaction_matrices[[1]]
   A.ep <- interaction_matrices[[2]]
+  A.p <- A.m + A.ep
   A.en <- interaction_matrices[[3]]
   A.c <- interaction_matrices[[4]]
+  interaction_index <- interaction_matrices[[6]]
+  interaction_type <- interaction_matrices[[7]]
   
+  s <- rep(s, n)
   r <- rep(r, n)
   K <- rep(K, n)
-  
-  #Half Saturation Constant
-  #h <- 20 
+  sK <- s/K
   
   init.x <- runif(n) * xo
   
+  rootfn <- function(t,x,parms){
+    dx <- unlist(qian_model(t,x,parms))
+    sum(abs(dx) > delta) - 0
+  }
+  
   qian_model <- function(t,x,parms){
-    dx <- x * (r + (s*x)/K +  ((((A.m+A.ep)/(h + x)) %*% x) + (A.c %*% x) + crossprod((t(A.en)/(h + x)), x)))
+    x <- pmax(x, 0)
+    dx <- x * (r + (sK*x) + ((A.p %*% (x/(h+x))) + (A.c %*% x) + (A.en %*% x)/(h+x)))
     list(dx)
   }
   
   n.integrate <- function(time=time, init.x= init.x, model=model){
     t.out <- seq(time$start,time$end)
-    as.data.frame(lsoda(init.x, t.out, model, parms = parms))
+    as.data.frame(lsodar(init.x, t.out, model, parms = parms, rootfunc = rootfn))
   }
   
-  # Integration window
-  time <- list(start = 0, end = 1)
-  # dummy variable for lvm() function defined above
-  parms <- c(0) ### dummy variable (can have any numerical value)
-  
-  steps <- 0
+  time <- list(start = 0, end = tl)
+  parms <- c(0)
   out <- n.integrate(time, init.x, model = qian_model)
-  while((sum(abs(out[2,2:length(out)] - out[1,2:length(out)]) > delta) > 0) && (steps < tl)) {
-    current.x <- as.numeric(out[2,2:length(out)])
-    out <- n.integrate(time, current.x, model = qian_model)
-    steps <- steps + 1
-  }
-  
-  #current.x <- as.numeric(out[2,2:length(out)])
-  return(list(out, mean(out[2,2:length(out)] > e), list(A.m, A.ep, A.en, A.c, h, K, r, s, steps, delta, tl, e)))
+  steps <- nrow(out)
+  return(list(out, mean(out[nrow(out),2:ncol(out)] > e), list(A.m, A.ep, A.en, A.c, h, K, r, s, steps, delta, tl, e, interaction_index, interaction_type)))
 }
 
 pathSim <- function(w, numSpecies, community, interactions, y = NULL) {
@@ -197,6 +193,7 @@ pathSim <- function(w, numSpecies, community, interactions, y = NULL) {
   
   A.m <- interactions[[1]][species, species]
   A.ep <- interactions[[2]][species, species]
+  A.p <- A.m + A.ep
   A.en <- interactions[[3]][species, species]
   A.c <- interactions[[4]][species, species]
   
@@ -204,35 +201,35 @@ pathSim <- function(w, numSpecies, community, interactions, y = NULL) {
   K <- interactions[[6]][species]
   r <- interactions[[7]][species]
   s <- rep(interactions[[8]], length(species))
+  sK <- s/K
   init.x <- unlist(xo, use.names = FALSE)
   
   delta <- interactions[[10]]
   tl <- interactions[[11]]
   e <- interactions[[12]]
   
+  rootfn <- function(t,x,parms){
+    dx <- unlist(qian_model(t,x,parms))
+    sum(abs(dx) > delta) - 0
+  }
+  
   qian_model <- function(t,x,parms){
-    dx <- x * (r + (s*x)/K +  ((((A.m+A.ep)/(h + x)) %*% x) + (A.c %*% x) + crossprod((t(A.en)/(h + x)), x)))
+    x <- pmax(x, 0)
+    dx <- x * (r + (sK*x) + ((A.p %*% (x/(h+x))) + (A.c %*% x) + (A.en %*% x)/(h+x)))
     list(dx)
   }
   
   n.integrate <- function(time=time, init.x= init.x, model=model){
     t.out <- seq(time$start,time$end)
-    as.data.frame(lsoda(init.x, t.out, model, parms = parms))
+    as.data.frame(lsodar(init.x, t.out, model, parms = parms, rootfunc = rootfn))
   }
   
-  time <- list(start = 0, end = 1)
-  parms <- c(0) ### dummy variable (can have any numerical value)
-  
-  step <- 0
-  
+  time <- list(start = 0, end = tl)
+  parms <- c(0)
   out <- n.integrate(time, init.x, model = qian_model)
-  while((sum(abs(out[2, 2:length(out)] - out[1, 2:length(out)]) > delta) > 0) && (step < tl)) {
-    current.x <- as.numeric(out[2,2:length(out)])
-    out <- n.integrate(time, current.x, model = qian_model)
-    step <- step + 1
-  }
+  steps <- nrow(out)
   
-  out <- unlist(out[2, 2:length(out)], use.names=FALSE)
+  out <- unlist(out[nrow(out), 2:ncol(out)], use.names=FALSE)
   for(i in 1:length(out))
   {
     xo[i] <- out[i]

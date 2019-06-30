@@ -6,7 +6,7 @@ library(plyr)
 library(doParallel)
 library(tictoc)
 
-VectorCvNs <- function(S, C, step, p.m, p.e, replicates = 10) {
+VectorCvNs <- function(S, C, step, p.m, p.e, s = 1, alpha = 0.5, xo = 10, r = 1, K = 100, h = 20, delta = 0.001, tl = 5000, e = 0.01, replicates = 10) {
   tic("Total:")
   ## make some random, cascade, and niche food webs
   ## S is species richness
@@ -29,7 +29,7 @@ VectorCvNs <- function(S, C, step, p.m, p.e, replicates = 10) {
   out <- foreach(i = reps) %:%
     foreach(C_step = cSteps) %:%
     foreach(S_step = sSteps, .export = c("fullSim", "QianMatrix"), .packages = c("deSolve", "lattice")) %dopar% {
-      fullSim(S_step, C_step, p.m, p.e, 1, 0.5, 10, 1, 100, 20, 0.001, 5000, 0.01)
+      fullSim(S_step, C_step, p.m, p.e, s, alpha, xo, r, K, h, delta, tl, e)
     }
   
   stopCluster(parCluster)
@@ -95,18 +95,18 @@ VectorCvNs <- function(S, C, step, p.m, p.e, replicates = 10) {
 
 #graphs mean or sd as heatmap
 heatMap <- function(dataFrame, graphType, xax="Species", yax="Connectance") {
-  ggplot(melt(as.matrix(dataFrame), id.vars = c("X1", "X2", "value"))) +
+  ggplot(melt(as.matrix(dataFrame))) +
   scale_fill_gradient(low = "steelblue", high = "white") +
   ylab(yax) +
   xlab(xax) +
-  geom_tile(mapping = aes(x = X2, y = X1, fill = value)) +
+  geom_tile(mapping = aes(x = Var2, y = Var1, fill = value)) +
   labs(fill = graphType)
 }
 
 #returns subset of community integrated through time using original final densities
 VectorPath <- function(community, interactions, numSpecies, C, e, k) {
   
-  livingAndDead <- community[nrow(community),2:length(community)] > e #getting the status of each species
+  livingAndDead <- community[nrow(community),2:ncol(community)] > e #getting the status of each species
   w <- list()
   counter = 1
   for(i in 1:length(livingAndDead)){
@@ -141,7 +141,7 @@ VectorPath <- function(community, interactions, numSpecies, C, e, k) {
 }
 
 nStarGraph <- function(container, Nstar, tolerance = 0.5, nI = 5,
-                       graphStep = 1, replicates = 10, e = 0.01, k = 1000) {
+                       graphStep = 1, replicates = 10, e = 0.01, k = 5000) {
   #creating matrix of NStar for all CvNs
   meanData <- container$mean
   communities <- container$communities
