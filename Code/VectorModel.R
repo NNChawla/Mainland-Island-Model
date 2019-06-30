@@ -99,7 +99,7 @@ heatMap <- function(dataFrame, graphType, xax="Species", yax="Connectance") {
   scale_fill_gradient(low = "steelblue", high = "white") +
   ylab(yax) +
   xlab(xax) +
-  geom_tile(mapping = aes(x = Var2, y = Var1, fill = value)) +
+  geom_tile(mapping = aes(x = X1, y = X2, fill = value)) +
   labs(fill = graphType)
 }
 
@@ -181,7 +181,7 @@ nStarGraph <- function(container, Nstar, tolerance = 0.5, nI = 5,
   print(c(indicies[[1]], indicies[[2]]))
 
   #plotting a subset of the species in the Nstar community, integrated through time
-  wSize <- sum(community[nrow(community),2:length(community)] > e)
+  wSize <- sum(community[nrow(community),2:ncol(community)] > e)
   stepSize <- graphStep
   subset <- list()
   frames <- list()

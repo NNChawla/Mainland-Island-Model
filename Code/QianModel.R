@@ -200,7 +200,7 @@ pathSim <- function(w, numSpecies, community, interactions, y = NULL) {
   h <- interactions[[5]]
   K <- interactions[[6]][species]
   r <- interactions[[7]][species]
-  s <- rep(interactions[[8]], length(species))
+  s <- interactions[[8]][species]
   sK <- s/K
   init.x <- unlist(xo, use.names = FALSE)
   
