@@ -1,67 +1,103 @@
-VectorCvNs <- function(S, C, step, p.m, p.e, s = 1, alpha = 0.5, xo = 10, r = 1, K = 100, h = 20, delta = 0.001, tl = 5000, e = 0.01, replicates = 10) {
+VectorMetaMatrix <- function(container, nI = 5, graphStep = 1, replicates = 10, e = 0.01, kl = 5000) {
+  tic()
   
-  N <- 1     ## set the number of replicate webs to make
-  matrixSize <- round(C/step)
+  mainS <- container$parms[[1]]
+  meanData <- container$mean
+  mainlands <- container$communities
+  interactions <- container$interactions
+  nStarMatrix <- data.frame(matrix(nrow=nrow(meanData), ncol=ncol(meanData)))
+  for(i in 1:ncol(nStarMatrix)){
+    nStarMatrix[i] <- meanData[,i]*as.numeric(colnames(meanData)[i])
+  }
+  colnames(nStarMatrix) <- colnames(meanData)
+  rownames(nStarMatrix) <- rownames(meanData)
   
-  reps <- 1:replicates
-  cSteps <- seq(step, C, step)
-  x <- S/(C/step)
-  sSteps <- seq(x, sum(rep(x, matrixSize)), x)
+  rownums <- 1:nrow(nStarMatrix)
+  colnums <- 1:ncol(nStarMatrix)
   
-  for(i in reps) {
-    for(C_step in cSteps) {
-      for(S_step in sSteps) {
-        print(c(i, C_step, S_step))
-        tic("Time to Steps")
-        z <- fullSim(S_step, C_step, p.m, p.e, s, alpha, xo, r, K, h, delta, tl, e)
-        print(c(z[[3]][[9]], z[[2]]))
-        debugGraph(z[[1]])
-        toc()
+  cs <- as.numeric(rownames(meanData))
+  ss <- as.numeric(colnames(meanData))
+  
+  for(i in cs) {
+    if(i < 1.0) next
+    for(j in ss) {
+      rpNum <- sample(length(mainlands), 1)
+      c <- which(cs == i)
+      s <- which(ss == j)
+      community <- mainlands[[rpNum]][[c]][[s]]
+      interaction <- interactions[[rpNum]][[c]][[s]]
+      if(is.null(community)) {
+        list("NULL", "NULL")
+      }
+      else {
+        
+        mainLiving <- sum(community[nrow(community), 2:ncol(community)] > e)
+        stepSize <- graphStep
+        subset <- list()
+        frames <- list()
+        pldRs <- list()
+        
+        for(k in 1:replicates) {
+          print(c(i, j, k))
+          pldRs[[k]] <- VectorPath(community, interaction, nI, i, e, kl)
+          subset[k] <- list(pldRs[[k]])
+          z <- c()
+          for(l in 1:length(subset[[k]])){
+            z <- c(z, lengths(subset[[k]][[l]]["Living"], use.names=FALSE))
+          }
+          z <- z/mainLiving
+          z <- data.frame(z)
+          colnames(z) <- k
+          z["Step"] <- c(1:nrow(z))
+          if(is.na(subset[k]))
+            z[[1]] <- NA
+          frames[[k]] <- z[seq(1, nrow(z), stepSize), ]
+          
+        }
+        
+        frames <- Reduce(function(x, y) merge(x=x, y=y, by="Step", all.y = TRUE, all.x = TRUE), frames)
+        colnames(frames) <- c("Step", paste(i, j, 1:replicates))
+        list(frames, pldRs)
       }
     }
   }
-  return()
-}
-
-fullSim <- function(n, C, p.m, p.e, s, alpha, xo, r, K, h, delta, tl, e) {
   
-  s <- -s
+  meanMat <- list()
+  pathLDRatios <- list()
   
-  interaction_matrices <- QianMatrix(n, C, p.m, p.e, s, alpha, K)
-  A.m <- interaction_matrices[[1]]
-  A.ep <- interaction_matrices[[2]]
-  A.p <- A.m + A.ep
-  A.en <- interaction_matrices[[3]]
-  A.c <- interaction_matrices[[4]]
-  interaction_index <- interaction_matrices[[6]]
-  interaction_type <- interaction_matrices[[7]]
-  
-  s <- rep(s, n)
-  r <- rep(r, n)
-  K <- rep(K, n)
-  sK <- s/K
-  
-  init.x <- runif(n) * xo
-
-  rootfn <- function(t,x,parms){
-    dx <- unlist(qian_model(t,x,parms))
-    sum(abs(dx) > delta) - 0
+  for(i in 1:length(out)){
+    meanMat[[i]] <- list()
+    pathLDRatios[[i]] <- list()
+    for(j in 1:length(out[[i]])){
+      meanMat[[i]][[j]] <- out[[i]][[j]][[1]]
+      pathLDRatios[[i]][[j]] <- out[[i]][[j]][[2]]
+    }
   }
   
-  qian_model <- function(t,x,parms){
-    x <- pmax(x, 0)
-    dx <- x * (r + (sK*x) + ((A.p %*% (x/(h+x))) + (A.c %*% x) + (A.en %*% x)/(h+x)))
-    list(dx)
+  frames <- list()
+  for(i in 1:length(meanMat)){
+    frames[[i]] <- Reduce(function(x, y) merge(x=x, y=y, by="Step", all.y = TRUE), meanMat[[i]])
+  }
+  frames <- Reduce(function(x, y) merge(x=x, y=y, by="Step", all.y = TRUE), frames)
+  
+  for(i in 1:length(pathLDRatios)){
+    for(j in 1:length(pathLDRatios[[i]])){
+      if(sum(is.na(pathLDRatios[[i]][[j]][[1]])) == 1) {
+        pathLDRatios[[i]][[j]] <- NA
+        next
+      }
+      for(k in 1:replicates){
+        z <- c()
+        for(l in 1:length(pathLDRatios[[i]][[j]][[k]])){
+          live <- length(pathLDRatios[[i]][[j]][[k]][[l]][["Living"]])
+          dead <- length(pathLDRatios[[i]][[j]][[k]][[l]][["Before"]])
+          z <- c(z, live/dead)
+        }
+        pathLDRatios[[i]][[j]][[k]] <- z
+      }
+    }
   }
   
-  n.integrate <- function(time=time, init.x= init.x, model=model){
-    t.out <- seq(time$start,time$end)
-    as.data.frame(lsodar(init.x, t.out, model, parms = parms, rootfunc = rootfn))
-  }
-    
-  time <- list(start = 0, end = tl)
-  parms <- c(0)
-  out <- n.integrate(time, init.x, model = qian_model)
-  steps <- nrow(out)
-  return(list(out, mean(out[nrow(out),2:ncol(out)] > e), list(A.m, A.ep, A.en, A.c, h, K, r, s, steps, delta, tl, e, interaction_index, interaction_type)))
+  toc()
+  return(list(frames, c(nI, mainS), timeMatrix(frames), pathLDRatios))
 }

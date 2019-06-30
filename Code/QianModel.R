@@ -161,7 +161,7 @@ fullSim <- function(n, C, p.m, p.e, s, alpha, xo, r, K, h, delta, tl, e) {
   return(list(out, mean(out[nrow(out),2:ncol(out)] > e), list(A.m, A.ep, A.en, A.c, h, K, r, s, steps, delta, tl, e, interaction_index, interaction_type)))
 }
 
-pathSim <- function(w, numSpecies, community, interactions, y = NULL) {
+pathSim <- function(w, numSpecies, community, interactions, y = NULL, xz = 0.1) {
   
   tmpBAL <- list()
   
@@ -170,9 +170,9 @@ pathSim <- function(w, numSpecies, community, interactions, y = NULL) {
   
   #Retrieving the appropriate persistences
   for(i in unlist(xo, use.names=FALSE)){
-    xo[paste("Species", i)] <- community[nrow(community), i]
+    xo[paste("Species", i)] <- community[nrow(community), i] * xz
   }
-
+  
   xo <- c(xo, y)
 
   tmp <- list()
