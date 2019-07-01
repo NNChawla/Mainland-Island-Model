@@ -1,29 +1,22 @@
 source("VectorModel.R")
 source("VectorMatrixFunctions.R")
 
-S <- c(50, 100, 150, 200, 300)
-C <- 0.5
-step <- 0.05
+S <- 200
+C <- 1.0
+step <- 0.1
+reps <- 5
 containers <- list()
 
-nI <- c(2, 5, 10)
-sT <- c(10, 50, 100, 200)
-
-for(i in 1:length(S)){
-  step <- 0.05
-  containers[[i]] <- tryCatch(CvNs(S[[i]], C, step), error=function(e) NA)
-  decrease <- TRUE
-  while(is.na(containers[[i]]) && !near(step, 0.0)){
-    if(decrease){
-      step <- step - 0.01
-      containers[[i]] <- tryCatch(CvNs(S[[i]], C, step), error=function(e) NA)
-    }
-    else{
-      containers[[i]] <- 0
+count <- 1
+for(p.m in seq(0, 1, 0.1)){
+  for(p.e in seq(0, 1, 0.1)) {
+    p.c = 1.0 - (p.m + p.e)
+    if(p.m+p.e+p.c == 1 && p.c > 0){
+      containers[[count]] <- VectorCvNs(S, C, step, p.m, p.e, replicates = reps)
+      count <- count + 1
     }
   }
 }
 
-datasets <- multiMatrix(containers, nI, sT)
-
-dtable <- dataTable(datasets, S, nI, sT)
+datasets <- multiMatrix(containers, reps)
+#dtable <- dataTable(datasets, S, nI, sT)

@@ -104,20 +104,14 @@ VectorMetaMatrix <- function(container, nI = 5, graphStep = 1, replicates = 10, 
   }
   
   toc()
-  return(list(frames, c(nI, mainS), timeMatrix(frames), pathLDRatios))
+  return(list(frames, container$parms, timeMatrix(frames), pathLDRatios))
 }
 
-multiMatrix <- function(containers, imms, times){
+multiMatrix <- function(containers, reps){
   plotMeans <- list()
   for(i in 1:length(containers)) {
-    plotMeans[[i]] <- list()
-    for(j in 1:length(imms)){
-      plotMeans[[i]][[j]] <- list()
-      for(k in 1:length(times)){
-        plotMeans[[i]][[j]][[k]] <- tryCatch(VectorMetaMatrix(containers[[i]], nI=imms[[j]], stepTime=times[[k]]), error=function(e) NA)
-        print(c(i, j, k))
-      }
-    }
+    plotMeans[[i]] <- tryCatch(VectorMetaMatrix(containers[[i]], replicates = reps), error=function(e) NA)
+    print(c(i, j, k))
   }
   return(plotMeans)
 }
@@ -151,4 +145,5 @@ dataTable <- function(timeMat) { # for a single metaMatrix run, takes the timeMa
     dtable <- rbind(dtable, c(CS, NS, RS, NFP, NFS, THalf))
   }
   names(dtable) <- headers
+  return(dtable)
 }
