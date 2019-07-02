@@ -1,3 +1,4 @@
+source("QianModel.R")
 source("VectorModel.R")
 source("VectorMatrixFunctions.R")
 

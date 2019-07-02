@@ -81,9 +81,9 @@ VectorMetaMatrix <- function(container, nI = 5, graphStep = 1, replicates = 10, 
   
   frames <- list()
   for(i in 1:length(meanMat)){
-    frames[[i]] <- Reduce(function(x, y) merge(x=x, y=y, by="Step", all.y = TRUE), meanMat[[i]])
+    frames[[i]] <- Reduce(function(x, y) merge(x=x, y=y, by="Step", all.y = TRUE, all.x = TRUE), meanMat[[i]])
   }
-  frames <- Reduce(function(x, y) merge(x=x, y=y, by="Step", all.y = TRUE), frames)
+  frames <- Reduce(function(x, y) merge(x=x, y=y, by="Step", all.y = TRUE, all.x = TRUE), frames)
   
   for(i in 1:length(pathLDRatios)){
     for(j in 1:length(pathLDRatios[[i]])){
@@ -111,7 +111,7 @@ multiMatrix <- function(containers, reps){
   plotMeans <- list()
   for(i in 1:length(containers)) {
     plotMeans[[i]] <- tryCatch(VectorMetaMatrix(containers[[i]], replicates = reps), error=function(e) NA)
-    print(c(i, j, k))
+    print(i)
   }
   return(plotMeans)
 }
@@ -123,7 +123,7 @@ timeMatrix <- function(massMat) {
   for(i in 2:length(massMat)){
     path <- massMat[[i]][!is.na(massMat[[i]])] #removing NAs from path so functions will work
     nFinalP <- path[[length(path)]] #Final Persistence Reached
-    nFinalS <- length(path)
+    nFinalS <- length(path) #Step at which community reached mainland's final persistence
     nHalfM <- which.min(abs(path-0.5)) #Step at which community reched half of the mainland's final persistence
     timeMat[[i-1]] <- c(nFinalP, nFinalS, nHalfM)
   }

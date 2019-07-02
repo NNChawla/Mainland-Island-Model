@@ -4,6 +4,8 @@
 #list(frames, c(nI, mainS), timeMatrix(frames), pathLDRatios)
 
 library(zoo)
+#seq_along(t100) , group=factor(C)
+#ggplot(dTable, aes(x=factor(C), y=t100, colour=factor(N))) + facet_wrap(vars(factor(R))) + geom_point() + geom_line()
 
 debugGraph <- function(mat) {
   mat <- mat[!is.na(mat$'1'),]
@@ -44,27 +46,10 @@ massGraph <- function(massMat, paths = c("All"), graphMean = FALSE, include = TR
   
   massMat <- na.locf(massMat)
   
-  if(sum(is.element(paths, names(massMat)), na.rm=TRUE) == length(paths)) {
-    mat <- massMat['Step']
-    for(i in paths){
-      mat[i] <- massMat[i]
-    }
-  }
-  else if(identical(paths, "All")) {
-    mat <- massMat
-  }
-  else{
-    return(print("Enter valid values for the desired path"))
-  }
-  
-  if(graphMean && include) {
-    mat["Graph Mean"] <- rowMeans(mat[2:length(mat)])
-  }
-  else if(graphMean) {
-    tmpMat <- mat
-    mat <- tmpMat['Step']
-    mat["Graph Mean"] <- rowMeans(tmpMat[2:length(tmpMat)])
-  }
+  for(i in paths)
+    mat <- matrix(nrow=nrow(massMat), ncol=ncol(massMat))
+    mat[i] <- unlist(select(massMat, ends_with(toString(i)))[1:nrow(massMat),])
+  browser()
   mat <- melt(mat, id.var="Step")
   colnames(mat) <- c("Step", "Replicates", "value")
   
@@ -143,29 +128,56 @@ pathGraph <- function(massMat, paths=c("All")){
 }
 #pathGraph(pathLDRatios, paste(1, 1:9))
 
-t50graph <- function(massMat, rNames, cNames){
+timeMatrixGraph <- function(massMat, rNames, cNames, t100){
+  if(t100) {
+    ylabel <- "t100"
+    rN <- 2
+  }
+  else {
+    ylabel <- "p100"
+    rN <- 1
+  }
+  
   timeMat <- massMat[[3]]
-  dims <- c(length(massMat[[4]]), max(lengths(massMat[[4]])))
+  x <- 100#length(massMat[[4]])
+  y <- max(lengths(massMat[[4]]))
   sC <- max(lengths(massMat[[4]][[1]]))
   
-  x <- dims[[1]]
-  y <- dims[[2]]
   vectors <- data.frame(matrix(nrow=x, ncol=y))
   vectors[, length(vectors)+1] <- as.double(rNames)[1:x]
   for(i in 1:y){
-    vectors[, i] <- unlist(select(timeMat, ends_with(toString(i)))[2,])
+    vectors[, i] <- unlist(select(timeMat, ends_with(toString(i)))[rN,])
   }
+  browser()
   rownames(vectors) <- rNames[1:x]
   colnames(vectors) <- c(cNames[1:y], "C")
   vectors <- melt(vectors, id.var="C")
-  colnames(vectors) <- c("C", "N", "t50")
+  colnames(vectors) <- c("C", "N", "factor")
   yLimit <- c(0, sC)
-  stepPlot <- ggplot(data=vectors, aes(x=C, y=t50, col=N)) +
+  stepPlot <- ggplot(data=vectors, aes(x=C, y=factor, col=N)) +
     geom_line() +
     geom_point() +
     ggtitle("Archipelago t50s") +
     xlab("C") +
-    ylab("t50")
+    ylab(ylabel)
   #expand_limits(y=yLimit)
   return(stepPlot)
+}
+
+plotFrames <- function(massMat){
+  mats <- list()
+  count <- 1
+  plotMat <- massMat[,2:ncol(massMat)]
+  for(i in seq(1, 1000, 10)){
+    path <- plotMat[1:5000, i:(i+9)]
+    max <- 0
+    for(i in 1:ncol(path)){
+      if(length(path[[i]][!is.na(path[[i]])]) > max)
+        max <- length(path[[i]][!is.na(path[[i]])])
+    }
+    path <- na.locf(path[1:max, 1:ncol(path)])
+    mats[[count]] <- path
+    count <- count + 1
+  }
+  return(mats)
 }
