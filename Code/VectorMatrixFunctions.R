@@ -104,7 +104,7 @@ VectorMetaMatrix <- function(container, nI = 5, graphStep = 1, replicates = 10, 
   }
   
   toc()
-  return(list(frames, container$parms, timeMatrix(frames), pathLDRatios))
+  return(list(tbFrames(frames), container$parms, timeMatrix(frames), pathLDRatios))
 }
 
 multiMatrix <- function(containers, reps){
@@ -130,7 +130,7 @@ timeMatrix <- function(massMat) {
   return(timeMat)
 }
 
-dataTable <- function(timeMat) { # for a single metaMatrix run, takes the timeMat and reformats it
+tbTimeMatrix <- function(timeMat) { # for a single metaMatrix run, takes the timeMat and reformats it
   headers <- c("C", "N", "R", "p100", "t100", "t50")
   dtable <- as.tibble(matrix(0,0,length(headers)))
   for(x in 1:length(timeMat)){
@@ -146,4 +146,37 @@ dataTable <- function(timeMat) { # for a single metaMatrix run, takes the timeMa
   }
   names(dtable) <- headers
   return(dtable)
+}
+
+tbFrames <- function(metaMat, replicates){
+  
+  plotMat <- metaMat[[1]][,2:ncol(metaMat[[1]])]
+  mats <- list()
+  count <- 1
+  
+  na.pad <- function(x,len){
+    x[1:len]
+  }
+  
+  makePaddedDataFrame <- function(l,...){
+    maxlen <- max(sapply(l,length))
+    frame <- data.frame(lapply(l,na.pad,len=maxlen),...)
+    colnames(frame) <- names(l)
+    return(frame)
+  }
+  
+  for(i in seq(1, ncol(plotMat), replicates)){
+    path <- plotMat[, i:(i+4)]
+    vals <- makePaddedDataFrame(lapply(path, FUN = function(x) rle(x[!is.na(x)])$values))
+    rps <- makePaddedDataFrame(lapply(path, FUN = function(x) rle(x[!is.na(x)])$lengths))
+    rps <- melt(rps, id.vars = NULL)[[2]]
+    path <- melt(vals, id.vars = NULL) %>% as_tibble() %>% separate(variable, c("C", "N", "R"), sep = "([\\ ])")
+    path <- path %>% add_column(RPS = rps) %>% drop_na
+    path <- path %>% add_column(Step = unlist(lapply(rle(path$R)$lengths, FUN = function(y) seq(1:y))))
+    mats[[count]] <- path
+    count <- count + 1
+  }
+  mats <- bind_rows(mats)
+  
+  return(mats)
 }

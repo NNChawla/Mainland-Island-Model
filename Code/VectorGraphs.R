@@ -4,23 +4,25 @@
 #list(frames, c(nI, mainS), timeMatrix(frames), pathLDRatios)
 
 library(zoo)
-#seq_along(t100) , group=factor(C)
-#ggplot(dTable, aes(x=factor(C), y=t100, colour=factor(N))) + facet_wrap(vars(factor(R))) + geom_point() + geom_line()
 
-debugGraph <- function(mat) {
-  mat <- mat[!is.na(mat$'1'),]
-  if(nrow(mat) > 1001){
-    mat <- rbind(mat[1,], mat[mat$time!=0,])
+pltTbFrames <- function(mats, single = FALSE, connectance = 0.1, richness = 10){
+  if(!single) {
+    plt <- ggplot(mats, aes(x=Step, y=value, color = factor(R)))
+    plt <- plt + facet_wrap(vars(factor(C)))
+    plt <- plt + geom_point() + geom_line() + theme(legend.position = "None") 
   }
-  mat$time <- seq(1, nrow(mat))
-  df <- melt(mat, id.vars = "time", variable.name = "series")
-  plt <- ggplot(df, aes(time,value)) + geom_line(aes(colour = series), show.legend = FALSE)
+  else{
+    mats <- mats %>% filter(C == connectance & N == richness)
+    plt <- ggplot(mats, aes(x=Step, y=value, color=factor(R)))
+    plt <- plt + geom_point() + geom_line() + xlab("Step Number") + ylab("Nisle")
+    plt <- plt + ggtitle(paste("Connectance", connectance, "Species #", richness))
+  }
   return(plt)
 }
 
 vPathGraph <- function(path, nStar) {
   plt <- list()
-
+  
   for(i in 1:length(path)) {
     plt[[i]] <- length(path[[i]][["Living"]])/nStar
   }
@@ -48,7 +50,7 @@ massGraph <- function(massMat, paths = c("All"), graphMean = FALSE, include = TR
   
   for(i in paths)
     mat <- matrix(nrow=nrow(massMat), ncol=ncol(massMat))
-    mat[i] <- unlist(select(massMat, ends_with(toString(i)))[1:nrow(massMat),])
+  mat[i] <- unlist(select(massMat, ends_with(toString(i)))[1:nrow(massMat),])
   browser()
   mat <- melt(mat, id.var="Step")
   colnames(mat) <- c("Step", "Replicates", "value")
@@ -162,22 +164,4 @@ timeMatrixGraph <- function(massMat, rNames, cNames, t100){
     ylab(ylabel)
   #expand_limits(y=yLimit)
   return(stepPlot)
-}
-
-plotFrames <- function(massMat){
-  mats <- list()
-  count <- 1
-  plotMat <- massMat[,2:ncol(massMat)]
-  for(i in seq(1, 1000, 10)){
-    path <- plotMat[1:5000, i:(i+9)]
-    max <- 0
-    for(i in 1:ncol(path)){
-      if(length(path[[i]][!is.na(path[[i]])]) > max)
-        max <- length(path[[i]][!is.na(path[[i]])])
-    }
-    path <- na.locf(path[1:max, 1:ncol(path)])
-    mats[[count]] <- path
-    count <- count + 1
-  }
-  return(mats)
 }
