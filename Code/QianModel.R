@@ -162,7 +162,7 @@ fullSim <- function(n, C, p.m, p.e, s, alpha, xo, r, K, h, delta, tl, e) {
   zout <- out[nrow(out),]
   
   steps <- nrow(out)
-  return(list(zout, mean(out[nrow(out),2:ncol(out)] > e), list(as.big.matrix(A.m), as.big.matrix(A.ep), as.big.matrix(A.en), as.big.matrix(A.c), h, K, r, s, steps, delta, tl, e, interaction_index, interaction_type)))
+  return(list(zout, mean(out[nrow(out),2:ncol(out)] > e), list(A.m, A.ep, A.en, A.c, h, K, r, s, steps, delta, tl, e, interaction_index, interaction_type)))
 }
 
 pathSim <- function(w, numSpecies, community, interactions, y = NULL, xz = 0.1) {

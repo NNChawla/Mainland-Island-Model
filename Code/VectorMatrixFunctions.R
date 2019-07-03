@@ -23,7 +23,7 @@ VectorMetaMatrix <- function(container, nI = 5, graphStep = 1, replicates = 10, 
   registerDoParallel(parCluster)
   
   out <- foreach(i = cs) %:%
-    foreach(j = ss, .export = c("VectorPath", "pathSim", "QianMatrix"), .packages = c("deSolve", "lattice")) %dopar% {
+    foreach(j = ss, .export = c("VectorPath", "pathSim", "QianMatrix"), .packages = c("deSolve", "lattice", "bigmemory")) %dopar% {
       rpNum <- sample(length(mainlands), 1)
       c <- which(cs == i)
       s <- which(ss == j)

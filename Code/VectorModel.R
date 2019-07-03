@@ -29,7 +29,7 @@ VectorCvNs <- function(S, C, step, p.m, p.e, s = 1, alpha = 0.5, xo = 10, r = 1,
   
   out <- foreach(i = reps) %:%
     foreach(C_step = cSteps) %:%
-    foreach(S_step = sSteps, .export = c("fullSim", "QianMatrix"), .packages = c("deSolve", "lattice", "bigmemory")) %dopar% {
+    foreach(S_step = sSteps, .export = c("fullSim", "QianMatrix"), .packages = c("deSolve", "lattice")) %dopar% {
       fullSim(S_step, C_step, p.m, p.e, s, alpha, xo, r, K, h, delta, tl, e)
     }
   
@@ -46,7 +46,19 @@ VectorCvNs <- function(S, C, step, p.m, p.e, s = 1, alpha = 0.5, xo = 10, r = 1,
   interactions <- foreach(i = out) %:%
     foreach(j = i) %:%
     foreach(k = j) %do% k[[3]]
+  
   rm(out)
+  
+  # for(i in 1:length(interactions)){
+  #   for(j in 1:length(interactions[[i]])) {
+  #     for(k in 1:length(interactions[[i]][[j]])){
+  #       interactions[[i]][[j]][[k]][[1]] <- as.big.matrix(interactions[[i]][[j]][[k]][[1]])
+  #       interactions[[i]][[j]][[k]][[2]] <- as.big.matrix(interactions[[i]][[j]][[k]][[2]])
+  #       interactions[[i]][[j]][[k]][[3]] <- as.big.matrix(interactions[[i]][[j]][[k]][[3]])
+  #       interactions[[i]][[j]][[k]][[4]] <- as.big.matrix(interactions[[i]][[j]][[k]][[4]])
+  #     }
+  #   }
+  # }
   
   #initializing containers to be returned
   means <- rep(list(rep(list(0), matrixSize)), matrixSize)
