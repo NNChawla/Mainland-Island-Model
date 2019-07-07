@@ -19,5 +19,7 @@ for(p.m in seq(0, 1, 0.1)){
   }
 }
 
-datasets <- multiMatrix(containers, reps)
-#dtable <- dataTable(datasets, S, nI, sT)
+datasets <- list()
+for(i in 1:length(containers)){
+  datasets[[i]] <- VectorMetaMatrix(containers[[i]], replicates = 5)
+}

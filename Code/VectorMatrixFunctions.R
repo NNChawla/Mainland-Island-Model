@@ -104,7 +104,7 @@ VectorMetaMatrix <- function(container, nI = 5, graphStep = 1, replicates = 10, 
   }
   
   toc()
-  return(list(tbFrames(frames), container$parms, timeMatrix(frames), pathLDRatios))
+  return(list(frames, container$parms, timeMatrix(frames), pathLDRatios))
 }
 
 multiMatrix <- function(containers, reps){
@@ -148,9 +148,9 @@ tbTimeMatrix <- function(timeMat) { # for a single metaMatrix run, takes the tim
   return(dtable)
 }
 
-tbFrames <- function(metaMat, replicates){
+tbFrames <- function(frames, replicates){
   
-  plotMat <- metaMat[[1]][,2:ncol(metaMat[[1]])]
+  plotMat <- frames[,2:ncol(frames)]
   mats <- list()
   count <- 1
   
@@ -167,6 +167,7 @@ tbFrames <- function(metaMat, replicates){
   
   for(i in seq(1, ncol(plotMat), replicates)){
     path <- plotMat[, i:(i+4)]
+    if(all(is.na(path[1,ncol(path)]))) path[1,1:ncol(path)] <- rep(0, ncol(path))
     vals <- makePaddedDataFrame(lapply(path, FUN = function(x) rle(x[!is.na(x)])$values))
     rps <- makePaddedDataFrame(lapply(path, FUN = function(x) rle(x[!is.na(x)])$lengths))
     rps <- melt(rps, id.vars = NULL)[[2]]
