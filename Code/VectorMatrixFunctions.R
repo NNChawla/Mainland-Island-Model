@@ -1,5 +1,6 @@
+#!/usr/bin/env Rscript
+
 VectorMetaMatrix <- function(container, nI = 5, graphStep = 1, replicates = 10, e = 0.01, kl = 5000) {
-  tic()
   
   mainS <- container$parms[[1]]
   meanData <- container$mean
@@ -21,9 +22,8 @@ VectorMetaMatrix <- function(container, nI = 5, graphStep = 1, replicates = 10, 
   numCores <- detectCores()
   parCluster <- makeCluster(numCores, type="PSOCK")
   registerDoParallel(parCluster)
-  
   out <- foreach(i = cs) %:%
-    foreach(j = ss, .export = c("VectorPath", "pathSim", "QianMatrix"), .packages = c("deSolve", "lattice", "bigmemory")) %dopar% {
+    foreach(j = ss, .export = c("VectorPath", "pathSim", "QianMatrix"), .packages = c("deSolve", "lattice")) %dopar% {
       rpNum <- sample(length(mainlands), 1)
       c <- which(cs == i)
       s <- which(ss == j)
@@ -31,53 +31,73 @@ VectorMetaMatrix <- function(container, nI = 5, graphStep = 1, replicates = 10, 
       community <- mainlands[[rpNum]][[c]][[s]]
       interaction <- interactions[[rpNum]][[c]][[s]]
       if(is.null(community)) {
-        list("NULL", "NULL")
+        list("NULL", "NULL", "NULL")
       }
       else {
         
         mainLiving <- sum(community[nrow(community), 2:ncol(community)] > e)
-        stepSize <- graphStep
-        subset <- list()
-        frames <- list()
-        pldRs <- list()
-        
-        for(k in 1:replicates) {
+        if(mainLiving > nI) {
+          stepSize <- graphStep
+          subset <- list()
+          frames <- list()
+          pldRs <- list()
+          steps <- list()
           
-          pldRs[[k]] <- VectorPath(community, interaction, nI, i, e, kl)
-          subset[k] <- list(pldRs[[k]])
-          z <- c()
-          for(l in 1:length(subset[[k]])){
-            z <- c(z, lengths(subset[[k]][[l]]["Living"], use.names=FALSE))
+          for(k in 1:replicates) {
+            
+            pldRs[[k]] <- VectorPath(community, interaction, nI, i, e, kl)
+            steps[[k]] <- sapply(pldRs[[k]], FUN = function(x) x$Steps)
+            subset[k] <- list(pldRs[[k]])
+            z <- c()
+            for(l in 1:length(subset[[k]])){
+              z <- c(z, lengths(subset[[k]][[l]]["Living"], use.names=FALSE))
+            }
+            z <- z/mainLiving
+            z <- data.frame(z)
+            colnames(z) <- k
+            z["Step"] <- c(1:nrow(z))
+            if(is.na(subset[k]))
+              z[[1]] <- NA
+            frames[[k]] <- z[seq(1, nrow(z), stepSize), ]
+            
           }
-          z <- z/mainLiving
-          z <- data.frame(z)
-          colnames(z) <- k
-          z["Step"] <- c(1:nrow(z))
-          if(is.na(subset[k]))
-            z[[1]] <- NA
-          frames[[k]] <- z[seq(1, nrow(z), stepSize), ]
-          
+          frames <- Reduce(function(x, y) merge(x=x, y=y, by="Step", all.y = TRUE, all.x = TRUE), frames)
+          colnames(frames) <- c("Step", paste(i, j, 1:replicates))
+          list(frames, pldRs, steps)
         }
-        
-        frames <- Reduce(function(x, y) merge(x=x, y=y, by="Step", all.y = TRUE, all.x = TRUE), frames)
-        colnames(frames) <- c("Step", paste(i, j, 1:replicates))
-        list(frames, pldRs)
+        else {
+          frames <- as.data.frame(rbind(c(1, rep(0, replicates))))
+          colnames(frames) <- c("Step", paste(i, j, 1:replicates))
+          pldRs <- list()
+          for(k in 1:replicates){
+            pldRs[[k]] <- NA
+          }
+          list(frames, pldRs, NA)
+        }
       }
     }
   
   stopCluster(parCluster)
   
+  rm(interactions)
+  rm(mainlands)
+  
   meanMat <- list()
   pathLDRatios <- list()
+  eqLengths <- list()
   
   for(i in 1:length(out)){
     meanMat[[i]] <- list()
     pathLDRatios[[i]] <- list()
+    eqLengths[[i]] <- list()
     for(j in 1:length(out[[i]])){
       meanMat[[i]][[j]] <- out[[i]][[j]][[1]]
       pathLDRatios[[i]][[j]] <- out[[i]][[j]][[2]]
+      eqLengths[[i]][[j]] <- out[[i]][[j]][[3]]
     }
   }
+  
+  rm(out)
   
   frames <- list()
   for(i in 1:length(meanMat)){
@@ -103,17 +123,7 @@ VectorMetaMatrix <- function(container, nI = 5, graphStep = 1, replicates = 10, 
     }
   }
   
-  toc()
-  return(list(frames, container$parms, timeMatrix(frames), pathLDRatios))
-}
-
-multiMatrix <- function(containers, reps){
-  plotMeans <- list()
-  for(i in 1:length(containers)) {
-    plotMeans[[i]] <- tryCatch(VectorMetaMatrix(containers[[i]], replicates = reps), error=function(e) NA)
-    print(i)
-  }
-  return(plotMeans)
+  return(list("Frames" = frames, "Parms" = container$parms, "TimeMatrix" = "TBA", "PLDRS" = pathLDRatios, "Steps" = eqLengths, "Data"="Data"))
 }
 
 timeMatrix <- function(massMat) {
@@ -178,6 +188,59 @@ tbFrames <- function(frames, replicates){
     count <- count + 1
   }
   mats <- bind_rows(mats)
+  
+  return(mats)
+}
+
+tbSteps <- function(eqLengths, tableFrame){
+  
+  mats <- list()
+  count <- 1
+  
+  na.pad <- function(x,len){
+    x[1:len]
+  }
+  
+  paddedFrame <- function(l,...){
+    maxlen <- max(sapply(l,length))
+    frame <- data.frame(lapply(l,na.pad,len=maxlen),...)
+    colnames(frame) <- seq(1, ncol(frame))
+    return(frame)
+  }
+  
+  for(i in 1:length(unique(tableFrame$C))){
+    tmpFrame <- paddedFrame(sapply(eqLengths[[i]], paddedFrame))
+    tmpFrame[1,] <- replace(tmpFrame[1,], is.na(tmpFrame[1,]), 0)
+    colnames(tmpFrame) <- unlist(lapply(tableFrame$C[[i]], sapply(unique(tableFrame$N), 1:length(unique(tableFrame$R)), FUN = paste), FUN = paste))
+    tmpFrame <- melt(tmpFrame, id.vars = NULL) %>% as_tibble() %>% separate(variable, c("C", "N", "R"), sep = "([\\ ])")
+    tmpFrame <- tmpFrame %>% drop_na
+    colnames(tmpFrame) <- c("C", "N", "R", "eqSteps")
+    tmpFrame <- tmpFrame %>% add_column(Step = unlist(lapply(rle(tmpFrame$R)$lengths, FUN = function(y) seq(1:y))))
+    mats[[count]] <- tmpFrame
+    count <- count + 1
+  }
+  
+  eqs <- bind_rows(mats)$eqSteps
+  rps <- tableFrame$RPS
+  mats <- tableFrame %>% add_column(eqSteps = seq(1, nrow(tableFrame)))
+  
+  neqs <- rep(NA, length(rps))
+  i <- 1
+  j <- 1
+  
+  while(i < length(rps)) {
+    if(rps[[i]]!=1){
+      neqs[[i]] <- mean(eqs[j:(j+rps[[i]]-1)])
+      j <- j + rps[[i]]
+      i <- i + 1
+    }
+    else{
+      neqs[[i]] <- eqs[[j]]
+      i <- i + 1
+      j <- j + 1
+    }
+  }
+  mats$eqSteps <- round(neqs)
   
   return(mats)
 }

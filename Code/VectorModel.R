@@ -1,14 +1,13 @@
+#!/usr/bin/env Rscript
+
 library(deSolve)
 library(lattice)
 library(tidyverse)
 library(reshape)
 library(plyr)
 library(doParallel)
-library(bigmemory)
-library(tictoc)
 
 VectorCvNs <- function(S, C, step, p.m, p.e, s = 1, alpha = 0.5, xo = 10, r = 1, K = 100, h = 20, delta = 0.001, tl = 5000, e = 0.01, replicates = 10) {
-  tic("Total:")
   ## make some random, cascade, and niche food webs
   ## S is species richness
   ## C is connectance
@@ -24,6 +23,7 @@ VectorCvNs <- function(S, C, step, p.m, p.e, s = 1, alpha = 0.5, xo = 10, r = 1,
   #C x S throws errors if it's not square
   
   numCores <- detectCores()
+  #parCluster <- makeCluster(numCores, type="FORK")
   parCluster <- makeCluster(numCores, type="PSOCK")
   registerDoParallel(parCluster)
   
@@ -101,7 +101,6 @@ VectorCvNs <- function(S, C, step, p.m, p.e, s = 1, alpha = 0.5, xo = 10, r = 1,
     stdDevs <- stdDevs[-c(remove), ]
   }
   #returning containers
-  toc()
   matrices <- list("communities" = communities, "persistences" = persistences, "mean" = means, "stdDev" = stdDevs, "interactions" = interactions, "parms" = c(S, C, step, p.m, p.e, 1-(p.m+p.e)))
   return(matrices)
   

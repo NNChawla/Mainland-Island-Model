@@ -1,3 +1,4 @@
+#!/usr/bin/env Rscript
 
 QianMatrix <- function(n, C, p.m, p.e, s, alpha, K) {
   ##number of species
@@ -254,6 +255,7 @@ pathSim <- function(w, numSpecies, community, interactions, y = NULL, xz = 0.1) 
   }
   
   tmpBAL["Living"] <- list(xo)
+  tmpBAL["Steps"] <- steps
   
   return(list(tmpBAL, xo))
 }
