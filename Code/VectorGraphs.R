@@ -4,8 +4,20 @@
 #list(frames, c(nI, mainS), timeMatrix(frames), pathLDRatios)
 
 library(zoo)
+library(ggtern)
 
-pltTbFrames <- function(mats, single = FALSE, connectance = 0.1, richness = 10){
+fixDS <- function(n){
+  print(n)
+  fileName <- paste("ds", n, sep="")
+  dsCopy <- readRDS(fileName)
+  dsCopy$TimeMatrix <- tbTimeMatrix(timeMatrix(dsCopy$Frames))
+  dsCopy$Data <- NULL
+  data <- tbFrames(dsCopy$Frames, 5)
+  dsCopy$Steps <- tbSteps(dsCopy$Steps, data)
+  return(dsCopy)
+}
+
+pltTbFrames <- function(mats, single = FALSE, connectance = 0.1, richness = 20){
   if(!single) {
     plt <- ggplot(mats, aes(x=Step, y=value, color = factor(R)))
     plt <- plt + facet_wrap(vars(factor(C)))
@@ -13,59 +25,25 @@ pltTbFrames <- function(mats, single = FALSE, connectance = 0.1, richness = 10){
   }
   else{
     mats <- mats %>% filter(C == connectance & N == richness)
+    R <- c()
+    val <- c()
+    step <- c()
+    for(i in 1:nrow(mats)){
+      R <- c(R, rep(mats$R[i], mats$eqSteps[i]))
+      val <- c(val, rep(mats$value[i], mats$eqSteps[i]))
+    }
+    
+    for(i in 1:length(rle(R)$values)){
+      step <- c(step, seq(1, rle(R)$lengths[[i]]))
+    }
+    
+    browser()
+    mats <- as.tibble(data.frame(R = R, value = val, Step = step))
     plt <- ggplot(mats, aes(x=Step, y=value, color=factor(R)))
-    plt <- plt + geom_point() + geom_line() + xlab("Step Number") + ylab("Nisle")
+    plt <- plt + geom_line(size = 1.25) + xlab("Step Number") + ylab("Nisle")
     plt <- plt + ggtitle(paste("Connectance", connectance, "Species #", richness))
   }
   return(plt)
-}
-
-vPathGraph <- function(path, nStar) {
-  plt <- list()
-  
-  for(i in 1:length(path)) {
-    plt[[i]] <- length(path[[i]][["Living"]])/nStar
-  }
-  
-  plt <- melt(plt)
-  colnames(plt) <- c("value", "Step")
-  
-  yLimit <- c(0, 1.0)
-  
-  stepPlot <- ggplot(data=plt, aes(x=Step, y=value)) +
-    geom_line() +
-    geom_point() +
-    xlab("Step Number") +
-    ylab("Nisle") +
-    expand_limits(y=yLimit)
-  
-  return(stepPlot)
-}
-
-massGraph <- function(massMat, paths = c("All"), graphMean = FALSE, include = TRUE) {
-  nI <- massMat[[2]][[1]]
-  massMat <- massMat[[1]]
-  
-  massMat <- na.locf(massMat)
-  
-  for(i in paths)
-    mat <- matrix(nrow=nrow(massMat), ncol=ncol(massMat))
-  mat[i] <- unlist(select(massMat, ends_with(toString(i)))[1:nrow(massMat),])
-  browser()
-  mat <- melt(mat, id.var="Step")
-  colnames(mat) <- c("Step", "Replicates", "value")
-  
-  yLimit <- c(0, 1.0)
-  
-  stepPlot <- ggplot(data=mat, aes(x=Step, y=value, col=Replicates)) +
-    geom_line() +
-    geom_point() +
-    ggtitle(paste("Archipelago Migration Simulation: Qian Model - nI", nI)) +
-    xlab("Step Number") +
-    ylab("Nisle") +
-    expand_limits(y=yLimit)
-  
-  return(stepPlot)
 }
 
 multiGraph <- function(multiMat, containers){
@@ -97,71 +75,86 @@ multiGraph <- function(multiMat, containers){
   return(list(massGraphs, tGraphs, pGraphs))
 }
 
-matGraphs <- function(massMat, container) {
-  meanData <- container$mean
-  fName <- paste(massMat[[2]][[1]], "-", massMat[[2]][[2]], "-", massMat[[2]][[3]], ".png", sep="")
-  mGraph <- massGraph(massMat, paths=c("All"))
-  tGraph <- t50graph(massMat, rownames(meanData), colnames(meanData))
-  pGraph <- pathGraph(massMat)
-  ggsave(filename=paste("mass-", fName, sep=""), plot=mGraph, dpi=320, width=20, height=10)
-  ggsave(filename=paste("t50-", fName, sep=""), plot=tGraph, dpi=320, width=20, height=10)
-  ggsave(filename=paste("path-", fName, sep=""), plot=pGraph, dpi=320, width=20, height=10)
-  return(list(mGraph, tGraph, pGraph))
+simplexGraph <- function(containers, connectance, numSpecies) {
+  filterFrame <- function(x, cn, ns) {
+    x <- x$TimeMatrix %>% filter(C == cn & N == ns)
+    
+    #return either mean of final persistence or of total steps
+    return(mean(x$p100))
+  }
+  
+  pm <- c()
+  pe <- c()
+  pc <- c()
+  
+  count <- 1
+  for(p.m in seq(0, 1, 0.1)){
+    for(p.e in seq(0, 1, 0.1)) {
+      p.c = 1.0 - (p.m + p.e)
+      if(p.m+p.e+p.c == 1 && p.c >= 0){
+        pm[[count]] <- p.m
+        pe[[count]] <- p.e
+        pc[[count]] <- 1 - (p.m + p.e)
+        count <- count + 1
+      }
+    }
+  }
+  
+  
+  values <- unlist(lapply(containers, filterFrame, cn=connectance, ns=numSpecies))
+  
+  df <- data.frame(M = pm, E = pe, C = pc, N = rep(0, length(pc)))
+  
+  count <- 1
+  for(i in 1:length(pm)) {
+    if(df[i,3] != 0 && df[i,3] != 1) {
+      df[i,4] = values[count]
+      count <- count + 1
+    }
+  }
+  
+  palette <- c( "#FF9933", "#002C54", "#3375B2", "#CCDDEC", "#BFBFBF", "#000000")
+  simplex <- ggtern(data=df, aes(E, C, M)) + 
+    geom_hex_tern(aes(value=N), color="black", alpha=1)
+  simplex <- simplex + scale_fill_gradient(name="Scale", low=palette[2], high=palette[4])
+  
+  #simplex <- simplex + Tarrowlab("Competition") +
+  #  Larrowlab("Exploitation") + Rarrowlab("Mutualism") + theme_showarrows()
+  
+  simplex <- simplex + labs(title=paste(connectance, numSpecies))
+  
+  return(simplex)
 }
 
-pathGraph <- function(massMat, paths=c("All")){
-  pathMat <- massMat[[4]]
-  C <- rep(seq_along(pathMat), lengths(pathMat))
-  N <- sequence(lengths(pathMat))
-  step <- lengths(unlist(pathMat, rec=FALSE))
-  graph <- data.frame(
-    CvN = paste(rep(C, step), rep(N, step)),
-    step = sequence(step),
-    nIM = unlist(pathMat)
-  )
-  #return(graph)
-  if(!identical(paths, "All"))
-    graph <- filter(graph, CvN %in% paths)
-  pathPlot <- ggplot(data=graph, aes(x=step, y=nIM, col=CvN)) +
-    geom_line() +
-    geom_point()
+simplexArrange <- function(containers, N) {
   
-  return(pathPlot)
+  graphs <- vector(mode = "list", length = 10)
+  graphs[[1]] <- simplexGraph(containers, 0.1, N)
+  graphs[[2]] <- simplexGraph(containers, 0.2, N)
+  graphs[[3]] <- simplexGraph(containers, 0.3, N)
+  graphs[[4]] <- simplexGraph(containers, 0.4, N)
+  graphs[[5]] <- simplexGraph(containers, 0.5, N)
+  graphs[[6]] <- simplexGraph(containers, 0.6, N)
+  graphs[[7]] <- simplexGraph(containers, 0.7, N)
+  graphs[[8]] <- simplexGraph(containers, 0.8, N)
+  graphs[[9]] <- simplexGraph(containers, 0.9, N)
+  graphs[[10]] <- simplexGraph(containers, 1.0, N)
+  plot <- do.call("grid.arrange", c(graphs, ncol=2, as.table=FALSE))
+  return(plot)
 }
-#pathGraph(pathLDRatios, paste(1, 1:9))
 
-timeMatrixGraph <- function(massMat, rNames, cNames, t100){
-  if(t100) {
-    ylabel <- "t100"
-    rN <- 2
-  }
-  else {
-    ylabel <- "p100"
-    rN <- 1
-  }
+lineArrange <- function(containers, N) {
   
-  timeMat <- massMat[[3]]
-  x <- 100#length(massMat[[4]])
-  y <- max(lengths(massMat[[4]]))
-  sC <- max(lengths(massMat[[4]][[1]]))
-  
-  vectors <- data.frame(matrix(nrow=x, ncol=y))
-  vectors[, length(vectors)+1] <- as.double(rNames)[1:x]
-  for(i in 1:y){
-    vectors[, i] <- unlist(select(timeMat, ends_with(toString(i)))[rN,])
+}
+
+#Line Graph: average replicates of timeStep extended line graphs for each container by padding shorter ones with zeros at the end?
+#Mass mean lines for every container for every CvN pairing into singular 55 line graphs?
+
+pdfSimplex <- function(containers) {
+  N <- seq(20, 200, 20)
+  for(i in 1:length(N)) {
+    #pdf(paste("p100-", N[[i]], ".pdf", sep=""))
+    #print(simplexArrange(containers, N[[i]]))
+    dev.off()
   }
-  browser()
-  rownames(vectors) <- rNames[1:x]
-  colnames(vectors) <- c(cNames[1:y], "C")
-  vectors <- melt(vectors, id.var="C")
-  colnames(vectors) <- c("C", "N", "factor")
-  yLimit <- c(0, sC)
-  stepPlot <- ggplot(data=vectors, aes(x=C, y=factor, col=N)) +
-    geom_line() +
-    geom_point() +
-    ggtitle("Archipelago t50s") +
-    xlab("C") +
-    ylab(ylabel)
-  #expand_limits(y=yLimit)
-  return(stepPlot)
 }

@@ -196,6 +196,7 @@ tbSteps <- function(eqLengths, tableFrame){
   
   mats <- list()
   count <- 1
+  reps <- 5
   
   na.pad <- function(x,len){
     x[1:len]
@@ -203,6 +204,9 @@ tbSteps <- function(eqLengths, tableFrame){
   
   paddedFrame <- function(l,...){
     maxlen <- max(sapply(l,length))
+    if(length(l) < reps){
+      l <- as.list(rep(0, reps))
+    }
     frame <- data.frame(lapply(l,na.pad,len=maxlen),...)
     colnames(frame) <- seq(1, ncol(frame))
     return(frame)

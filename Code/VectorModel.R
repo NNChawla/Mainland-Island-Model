@@ -23,7 +23,6 @@ VectorCvNs <- function(S, C, step, p.m, p.e, s = 1, alpha = 0.5, xo = 10, r = 1,
   #C x S throws errors if it's not square
   
   numCores <- detectCores()
-  #parCluster <- makeCluster(numCores, type="FORK")
   parCluster <- makeCluster(numCores, type="PSOCK")
   registerDoParallel(parCluster)
   

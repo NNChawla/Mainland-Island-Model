@@ -96,7 +96,29 @@ trophicIndexes <- function(m, numEdges) {
   }
   tiIndexes <- tiIndexes/numEdges
   
-  return(tiIndexes)
+  return(list(tiIndexes, tis))
+}
+
+impactsIndex <- function(tis) {
+  rows <- dim(tis)[[1]]
+  cols <- dim(tis)[[2]]
+  edges <- dim(tis)[[3]]
+  tiM <- matrix(nrow=rows, ncol=cols)
+  for(i in 1:rows){
+    for(j in 1:cols) {
+      tiM[i,j] = sum(tis[i,j,])/edges
+    }
+  }
+  
+  Q <- tiM - t(tiM)
+  I <- diag(rows)
+  M <- solve(I-Q) - I
+  IMA <- rep(0, rows)
+  for(i in 1:rows){
+    IMA[i] <- sum(abs(M[i,]))
+  }
+  
+  return(IMA)
 }
 
 KeystoneIndexes <- function(m, walk_length) {
@@ -104,8 +126,9 @@ KeystoneIndexes <- function(m, walk_length) {
   g <- qgraph(t(abs(m)), directed = TRUE, DoNotPlot = TRUE)
   m_centrality <- centrality(g, weighted = TRUE)
   values <- trophicIndexes(m, walk_length)
+  impacts <- impactsIndex(values[[2]])
   
-  return(list(m_centrality, values))
+  return(list(m_centrality, values[[1]], impacts))
 }
 
 KeystoneSimulate <- function(interactions, community, walk_length) {
@@ -133,7 +156,6 @@ KeystoneSimulate <- function(interactions, community, walk_length) {
   
   m <- m[-extinctSpecies, -extinctSpecies]
   mCommunity <- mCommunity[-extinctSpecies]
-  #species <- names(mCommunity)
   mCommunity <- unlist(mCommunity, use.names = FALSE)
   
   predictions <- KeystoneIndexes(m, walk_length)
@@ -177,11 +199,11 @@ KeystoneSimulate <- function(interactions, community, walk_length) {
   numStillAlive <- c(1:nrow(m))
   
   for (i in 1:nrow(m)) {
-    print(i)
+    #print(i)
     run <- simulate(i)
     numStillAlive[[i]] <- sum(run[2:ncol(run)] > e)
   }
   
-  print(numStillAlive)
+  #print(numStillAlive)
   return(list(predictions, numStillAlive))
 }
